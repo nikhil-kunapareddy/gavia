@@ -1,0 +1,24 @@
+# Normalize line endings on checkin, leave native on checkout.
+* text=auto
+
+# Explicitly binary so git never mangles them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.dmg binary
+*.mp4 binary
+*.mov binary
+*.wav binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Keep shell scripts LF even on Windows checkouts.
+*.sh text eol=lf
