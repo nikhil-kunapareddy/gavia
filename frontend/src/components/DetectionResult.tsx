@@ -11,7 +11,7 @@ interface DetectionResultProps {
   saved: boolean
 }
 
-const BOX_COLOR = '#ef6a4a'
+const BOX_COLOR = '#d3232c'
 
 /**
  * Draws the detection boxes onto a copy of the image and triggers a download.

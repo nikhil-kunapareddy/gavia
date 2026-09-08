@@ -26,13 +26,7 @@ export function SiteHeader({
           onClick={() => onNavigate('check')}
           aria-label="Go to check an image"
         >
-          <span className="brand-mark">
-            <span />
-          </span>
-          <span>
-            <strong>National Loon Center</strong>
-            <small>Conservation field tools</small>
-          </span>
+          <strong>Gavia</strong>
         </button>
         <nav
           className={`main-nav ${mobileMenuOpen ? 'nav-open' : ''}`}

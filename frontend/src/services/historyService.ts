@@ -8,23 +8,25 @@ const STORAGE_KEY = 'loon-detector-history'
  */
 const MAX_SAVED_ENTRIES = 20
 
-function sampleImage(birds: Array<{ x: number; y: number; scale: number }>, sky = '#a8c9c5') {
+function sampleImage(birds: Array<{ x: number; y: number; scale: number }>, sky = '#a3bccb') {
   const birdShapes = birds
     .map(
       ({ x, y, scale }) => `
     <g transform="translate(${x} ${y}) scale(${scale})">
-      <ellipse cx="0" cy="0" rx="34" ry="16" fill="#173e42"/>
-      <path d="M-28 1 C-14 28 19 29 29 4 C18 11 -8 13 -28 1Z" fill="#102f34"/>
-      <path d="M28 -5 L51 -18 L35 2Z" fill="#d88c4b"/>
-      <circle cx="24" cy="-7" r="3" fill="#f4eee0"/>
+      <ellipse cx="0" cy="0" rx="34" ry="16" fill="#121a1d"/>
+      <path d="M-28 1 C-14 28 19 29 29 4 C18 11 -8 13 -28 1Z" fill="#0a1013"/>
+      <path d="M28 -5 L51 -18 L35 2Z" fill="#2c353a"/>
+      <g fill="#eef3f5" opacity=".85"><rect x="-22" y="-7" width="5" height="4"/><rect x="-13" y="-10" width="5" height="4"/><rect x="-14" y="-2" width="5" height="4"/><rect x="-4" y="-7" width="5" height="4"/></g>
+      <path d="M14 -10 V7" stroke="#eef3f5" stroke-width="1.8" opacity=".8"/>
+      <circle cx="24" cy="-7" r="3" fill="#c2262e"/>
     </g>`,
     )
     .join('')
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620">
-    <defs><linearGradient id="lake" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${sky}"/><stop offset="1" stop-color="#6d9f9b"/></linearGradient></defs>
+    <defs><linearGradient id="lake" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${sky}"/><stop offset="1" stop-color="#5a7b8b"/></linearGradient></defs>
     <rect width="900" height="620" fill="url(#lake)"/>
-    <path d="M0 465 C160 420 240 490 410 450 S700 420 900 468 V620 H0Z" fill="#477e78" opacity=".48"/>
-    <path d="M0 532 C180 490 300 550 470 515 S720 500 900 540" fill="none" stroke="#c5dfd7" stroke-width="7" opacity=".5"/>
+    <path d="M0 465 C160 420 240 490 410 450 S700 420 900 468 V620 H0Z" fill="#3f5f6d" opacity=".48"/>
+    <path d="M0 532 C180 490 300 550 470 515 S720 500 900 540" fill="none" stroke="#cddce4" stroke-width="7" opacity=".5"/>
     ${birdShapes}
   </svg>`
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
@@ -56,7 +58,7 @@ const SAMPLE_RESULTS: DetectionResult[] = [
         { x: 500, y: 340, scale: 1.05 },
         { x: 725, y: 190, scale: 0.7 },
       ],
-      '#b2c9bb',
+      '#aec3cf',
     ),
     fileName: 'sample-three-loons.jpg',
     fileSize: 2630000,
@@ -86,7 +88,7 @@ const SAMPLE_RESULTS: DetectionResult[] = [
   },
   {
     id: 'sample-no-loon',
-    imageUrl: sampleImage([], '#c7d4c8'),
+    imageUrl: sampleImage([], '#c3d0d8'),
     fileName: 'sample-clear-water.jpg',
     fileSize: 1290000,
     detections: [],

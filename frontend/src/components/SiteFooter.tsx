@@ -1,7 +1,7 @@
 export function SiteFooter() {
   return (
     <footer className="site-footer">
-      <span>National Loon Center</span>
+      <span>Gavia &mdash; A Product of Humanitarians AI</span>
       <span>Prototype for conservation research</span>
     </footer>
   )

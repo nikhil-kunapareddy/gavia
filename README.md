@@ -1,5 +1,7 @@
 # Gavia
 
+*A Product of Humanitarians AI*
+
 A computer-vision tool that finds loons in photographs, built to support loon
 research and conservation work in the field.
 

@@ -8,13 +8,15 @@ export default {
   corePlugins: { container: false },
   theme: {
     extend: {
+      // Common loon breeding plumage: a green-black head, one crimson eye, a
+      // checkered back and a white breast, on cold northern lake water.
       colors: {
-        ink: '#163033',
-        pine: '#1f5b55',
-        water: '#dcefeb',
-        reed: '#d9e5dc',
-        shell: '#f7f8f3',
-        sun: '#e7ad51',
+        ink: '#111b1e',
+        iridescence: '#1d443f',
+        lake: '#dbe7ee',
+        slate: '#d8e0e4',
+        breast: '#f6f8f9',
+        eye: '#b3242c',
       },
       fontFamily: {
         sans: ['"DM Sans"', 'sans-serif'],
