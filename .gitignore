@@ -48,6 +48,10 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+gavia-venv/
+# Project venv (created with `python3 -m venv gavia-venv`). Anchored to the
+# repo root so a future source dir of the same name isn't ignored by accident.
+/gavia-venv/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
