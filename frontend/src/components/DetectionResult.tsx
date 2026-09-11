@@ -9,6 +9,12 @@ interface DetectionResultProps {
   onCheckAnother: () => void
   onSave: () => void
   saved: boolean
+  saving?: boolean
+  /**
+   * Whether this result still has its source file to hand. A result reopened
+   * from history does not, and is already saved anyway.
+   */
+  savable?: boolean
 }
 
 const BOX_COLOR = '#ef6a4a'
@@ -75,7 +81,14 @@ function downloadAnnotated(result: Result): Promise<boolean> {
   })
 }
 
-export function DetectionResult({ result, onCheckAnother, onSave, saved }: DetectionResultProps) {
+export function DetectionResult({
+  result,
+  onCheckAnother,
+  onSave,
+  saved,
+  saving = false,
+  savable = true,
+}: DetectionResultProps) {
   const [feedback, setFeedback] = useState<'yes' | 'no' | null>(null)
   const [downloadError, setDownloadError] = useState('')
 
@@ -179,8 +192,12 @@ export function DetectionResult({ result, onCheckAnother, onSave, saved }: Detec
         <button className="button button-dark" onClick={onCheckAnother}>
           <RotateCcw size={17} /> Check another image
         </button>
-        <button className="button button-outline" onClick={onSave} disabled={saved}>
-          <Save size={17} /> {saved ? 'Saved to history' : 'Save result'}
+        <button
+          className="button button-outline"
+          onClick={onSave}
+          disabled={saved || saving || !savable}
+        >
+          <Save size={17} /> {saved ? 'Saved to history' : saving ? 'Saving…' : 'Save result'}
         </button>
         <button className="button button-quiet" onClick={() => void handleDownload()}>
           <Download size={17} /> Download image

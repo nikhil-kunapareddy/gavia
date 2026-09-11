@@ -1,9 +1,11 @@
 import { ChevronRight, History } from 'lucide-react'
 import { formatDate, highestConfidence, pluralizeLoons, toPercent } from '../lib/format'
+import { thumbnailUrl } from '../services/historyService'
 import type { DetectionResult } from '../types/detection'
 
 interface HistoryPageProps {
   history: DetectionResult[]
+  loading?: boolean
   onOpenResult: (result: DetectionResult) => void
   onClearHistory: () => void
   onCheckAnother: () => void
@@ -17,6 +19,7 @@ function summarize(result: DetectionResult): string {
 
 export function HistoryPage({
   history,
+  loading = false,
   onOpenResult,
   onClearHistory,
   onCheckAnother,
@@ -36,7 +39,11 @@ export function HistoryPage({
         )}
       </div>
 
-      {history.length === 0 ? (
+      {loading ? (
+        <div className="empty-history">
+          <p>Loading your saved checks…</p>
+        </div>
+      ) : history.length === 0 ? (
         <div className="empty-history">
           <History size={29} />
           <h2>No saved checks yet</h2>
@@ -49,9 +56,8 @@ export function HistoryPage({
         <div className="history-grid">
           {history.map((item) => (
             <button className="history-card" key={item.id} onClick={() => onOpenResult(item)}>
-              <img src={item.imageUrl} alt="Saved loon check" />
+              <img src={thumbnailUrl(item.id)} alt="" loading="lazy" />
               <span className="history-card-content">
-                {item.isSample && <span className="sample-label">Demo sample</span>}
                 <span
                   className={item.detections.length ? 'history-status found' : 'history-status'}
                 >

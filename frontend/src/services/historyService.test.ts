@@ -1,119 +1,145 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DetectionResult } from '../types/detection'
-import { clearHistory, loadHistory, saveHistory } from './historyService'
-
-const STORAGE_KEY = 'loon-detector-history'
+import { ApiError } from './api'
+import {
+  clearHistory,
+  deleteResult,
+  loadHistory,
+  saveResult,
+  thumbnailUrl,
+} from './historyService'
 
 function makeResult(id: string, overrides: Partial<DetectionResult> = {}): DetectionResult {
   return {
     id,
-    imageUrl: `data:image/png;base64,${id}`,
+    imageUrl: '',
     fileName: `${id}.jpg`,
     fileSize: 1000,
     detections: [],
     processingTime: 1,
     timestamp: '2026-09-06T10:00:00.000Z',
+    imageWidth: 4000,
+    imageHeight: 3000,
+    modelName: 'loon_v1',
+    tilesProcessed: 1,
+    saved: false,
     ...overrides,
   }
 }
 
-/**
- * Makes every setItem throw the quota error the browser raises when full.
- *
- * Spies on the instance rather than Storage.prototype so this works under both
- * jsdom's Storage and the in-memory shim from the test setup.
- */
-function failWithQuota() {
-  return vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
-    throw new DOMException('Quota exceeded', 'QuotaExceededError')
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
   })
 }
 
+const fetchMock = vi.fn()
+
 beforeEach(() => {
-  localStorage.clear()
+  fetchMock.mockReset()
+  vi.stubGlobal('fetch', fetchMock)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('loadHistory', () => {
-  it('returns the demo samples when storage is empty', () => {
-    const history = loadHistory()
-    expect(history).toHaveLength(3)
-    expect(history.every((entry) => entry.isSample)).toBe(true)
+  it('returns what the API returns', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([makeResult('a'), makeResult('b')]))
+
+    const history = await loadHistory()
+
+    expect(history.map((entry) => entry.id)).toEqual(['a', 'b'])
+    expect(fetchMock).toHaveBeenCalledWith('/api/results', expect.anything())
   })
 
-  it('recovers from malformed JSON instead of throwing', () => {
-    localStorage.setItem(STORAGE_KEY, '{not json')
-    expect(() => loadHistory()).not.toThrow()
-    expect(loadHistory()).toHaveLength(3)
-  })
-
-  it('recovers when stored JSON is not an array', () => {
-    localStorage.setItem(STORAGE_KEY, '{"unexpected":true}')
-    expect(loadHistory().every((entry) => entry.isSample)).toBe(true)
-  })
-
-  it('keeps saved entries ahead of the samples', () => {
-    saveHistory(makeResult('user-1'))
-    const history = loadHistory()
-    expect(history[0].id).toBe('user-1')
-    expect(history).toHaveLength(4)
+  it('returns an empty list rather than inventing placeholder entries', async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]))
+    await expect(loadHistory()).resolves.toEqual([])
   })
 })
 
-describe('saveHistory', () => {
-  it('persists a result across loads', () => {
-    saveHistory(makeResult('user-1'))
-    expect(loadHistory().map((entry) => entry.id)).toContain('user-1')
+describe('saveResult', () => {
+  it('sends the image alongside the reviewed detections', async () => {
+    const stored = makeResult('abc', { saved: true, imageUrl: '/api/results/abc/image' })
+    fetchMock.mockResolvedValue(jsonResponse(stored, 201))
+
+    const file = new File(['bytes'], 'loon.jpg', { type: 'image/jpeg' })
+    const result = await saveResult(
+      makeResult('abc', {
+        detections: [
+          {
+            id: 'abc-0',
+            label: 'Loon',
+            confidence: 0.9,
+            boundingBox: { x: 1, y: 2, width: 3, height: 4 },
+          },
+        ],
+      }),
+      file,
+    )
+
+    expect(result.saved).toBe(true)
+
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/results')
+    expect(init.method).toBe('POST')
+
+    // The detections the reviewer actually looked at have to be what is
+    // stored, so they travel with the request rather than being recomputed.
+    const body = init.body as FormData
+    expect(body.get('image')).toBe(file)
+    const payload = JSON.parse(body.get('result') as string) as { detections: unknown[] }
+    expect(payload.detections).toHaveLength(1)
   })
 
-  it('replaces an entry with the same id rather than duplicating it', () => {
-    saveHistory(makeResult('user-1'))
-    saveHistory(makeResult('user-1', { fileName: 'renamed.jpg' }))
-    const matches = loadHistory().filter((entry) => entry.id === 'user-1')
-    expect(matches).toHaveLength(1)
-    expect(matches[0].fileName).toBe('renamed.jpg')
-  })
+  it('surfaces a typed error the UI can branch on', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: { code: 'ALREADY_SAVED', message: 'Already there.' } }, 409),
+    )
 
-  it('caps saved entries at 20 without evicting the demo samples', () => {
-    for (let index = 0; index < 25; index += 1) saveHistory(makeResult(`user-${index}`))
-
-    const history = loadHistory()
-    expect(history.filter((entry) => !entry.isSample)).toHaveLength(20)
-    expect(history.filter((entry) => entry.isSample)).toHaveLength(3)
-  })
-
-  it('keeps the most recent entries when trimming', () => {
-    for (let index = 0; index < 25; index += 1) saveHistory(makeResult(`user-${index}`))
-
-    const ids = loadHistory().map((entry) => entry.id)
-    expect(ids).toContain('user-24')
-    expect(ids).not.toContain('user-0')
-  })
-
-  // Saved results embed the image as base64, so the quota is reachable in
-  // ordinary use. The original implementation let this throw uncaught.
-  it('does not throw when storage quota is exceeded', () => {
-    failWithQuota()
-    expect(() => saveHistory(makeResult('user-1'))).not.toThrow()
-  })
-
-  it('reports what was actually persisted when the quota is hit', () => {
-    failWithQuota()
-    const persisted = saveHistory(makeResult('user-1'))
-    expect(Array.isArray(persisted)).toBe(true)
+    await expect(
+      saveResult(makeResult('dup'), new File([''], 'x.jpg')),
+    ).rejects.toMatchObject({ code: 'ALREADY_SAVED', status: 409 })
   })
 })
 
-describe('clearHistory', () => {
-  it('removes saved entries but keeps the samples', () => {
-    saveHistory(makeResult('user-1'))
-    clearHistory()
-    const history = loadHistory()
-    expect(history.map((entry) => entry.id)).not.toContain('user-1')
-    expect(history.every((entry) => entry.isSample)).toBe(true)
+describe('deleteResult and clearHistory', () => {
+  it('deletes one result', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ deleted: 1 }))
+    await deleteResult('abc')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/results/abc',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
   })
 
-  it('does not throw when storage is unavailable', () => {
-    failWithQuota()
-    expect(() => clearHistory()).not.toThrow()
+  it('reports how many results were cleared', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ deleted: 7 }))
+    await expect(clearHistory()).resolves.toBe(7)
+  })
+})
+
+describe('error translation', () => {
+  it('turns an unreachable backend into a NETWORK_ERROR', async () => {
+    // The backend not being up is a different problem from a rejected image,
+    // and the UI tells the user so.
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await expect(loadHistory()).rejects.toBeInstanceOf(ApiError)
+    await expect(loadHistory()).rejects.toMatchObject({ code: 'NETWORK_ERROR', status: 0 })
+  })
+
+  it('falls back to a status message when the body is not JSON', async () => {
+    fetchMock.mockResolvedValue(new Response('<html>502</html>', { status: 502 }))
+    await expect(loadHistory()).rejects.toMatchObject({ code: 'UNKNOWN', status: 502 })
+  })
+})
+
+describe('thumbnailUrl', () => {
+  it('points at the API thumbnail, not a base64 blob', () => {
+    expect(thumbnailUrl('abc')).toBe('/api/results/abc/thumb')
   })
 })

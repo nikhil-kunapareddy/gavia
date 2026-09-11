@@ -20,5 +20,9 @@
 *.woff binary
 *.woff2 binary
 
+# Model weights. Committed, not LFS: an offline desktop app has to ship with
+# its model, and 36MB is a one-time clone cost.
+*.onnx binary
+
 # Keep shell scripts LF even on Windows checkouts.
 *.sh text eol=lf
