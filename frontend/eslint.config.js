@@ -45,4 +45,11 @@ export default tseslint.config(
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
   },
+  {
+    // Playwright specs are Node, not React. The react-hooks plugin otherwise
+    // mistakes Playwright's fixture `use(...)` callback for React's `use`.
+    files: ['e2e/**/*.ts'],
+    languageOptions: { globals: globals.node },
+    rules: { 'react-hooks/rules-of-hooks': 'off' },
+  },
 )

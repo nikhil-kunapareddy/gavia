@@ -3,3 +3,9 @@ uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
 python-multipart==0.0.20
+
+# Inference. onnxruntime replaces torch+ultralytics (~2.5GB -> ~90MB), which
+# is what makes bundling the backend into a desktop app practical.
+onnxruntime==1.29.0
+numpy==2.4.6
+pillow==12.3.0
