@@ -5,7 +5,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules'] },
+  // src-tauri is Rust. Its build output contains generated .js assets that
+  // are not source and do not parse.
+  { ignores: ['dist', 'coverage', 'node_modules', 'src-tauri'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],

@@ -266,5 +266,7 @@ class TestAuthToken:
                 # The health probe stays open so the shell can see the sidecar
                 # come up before it knows anything else.
                 assert authed.get("/api/health").status_code == 200
+                # /model is not a liveness probe, so it is gated like the rest.
+                assert authed.get("/api/model").status_code == 401
         finally:
             global_settings.auth_token = original

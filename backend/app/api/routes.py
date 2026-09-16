@@ -26,7 +26,12 @@ def health(request: Request) -> HealthResponse:
     )
 
 
-@router.get("/model", response_model=ModelResponse, tags=["system"])
+@router.get(
+    "/model",
+    response_model=ModelResponse,
+    tags=["system"],
+    dependencies=[Depends(require_token)],
+)
 def model(detector: Detector = Depends(get_detector)) -> ModelResponse:
     """What the running process actually loaded.
 
@@ -49,5 +54,7 @@ def model(detector: Detector = Depends(get_detector)) -> ModelResponse:
 
 
 # Everything except the health probe sits behind the token, when one is set.
+# /model is gated too: it is the one system route that describes the install
+# rather than merely proving it is alive.
 router.include_router(routes_detect.router, dependencies=[Depends(require_token)])
 router.include_router(routes_results.router, dependencies=[Depends(require_token)])

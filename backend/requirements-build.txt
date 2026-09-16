@@ -1,0 +1,7 @@
+# Desktop packaging only.
+#
+# Kept out of requirements.txt so the runtime environment stays as lean as the
+# bundle it produces — PyInstaller is a build tool and has no business being
+# importable from the app.
+-r requirements.txt
+pyinstaller==6.22.3

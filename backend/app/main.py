@@ -1,13 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api.routes import router
 from app.core.config import Settings, settings
-from app.core.errors import register_exception_handlers
+from app.core.errors import NotFoundError, register_exception_handlers
 from app.core.logging import RequestContextMiddleware, configure_logging
 from app.core.paths import ensure_data_dirs
 from app.detection import Detector, ModelUnavailableError
@@ -93,7 +95,34 @@ def create_app(config: Settings | None = None) -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(router, prefix="/api")
+
+    if config.static_dir is not None:
+        _serve_frontend(app, config.static_dir)
+
     return app
+
+
+def _serve_frontend(app: FastAPI, static_dir: Path) -> None:
+    """Serve the built frontend from ``/``, beside the API.
+
+    Only the packaged desktop build does this. Putting both halves on one
+    origin is what lets the webview use plain relative ``/api`` URLs, with no
+    base URL to configure and no CORS exception to grant.
+    """
+    # Registered after the API router, so real endpoints still win, but before
+    # the catch-all mount, so an unknown /api path keeps the JSON error shape
+    # the frontend branches on instead of falling through to StaticFiles' bare
+    # 404.
+    @app.api_route(
+        "/api/{_path:path}",
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        include_in_schema=False,
+    )
+    async def api_not_found(_path: str) -> None:
+        raise NotFoundError()
+
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="web")
+    logger.info("serving frontend", extra={"staticDir": str(static_dir)})
 
 
 app = create_app()

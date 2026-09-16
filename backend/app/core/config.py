@@ -1,10 +1,25 @@
+import sys
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.paths import default_data_dir
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+def _backend_root() -> Path:
+    """Where the bundled ``models/`` directory sits.
+
+    PyInstaller unpacks the frozen sidecar into a temporary tree and rewrites
+    ``__file__`` to point inside it, so walking up from this module happens to
+    land in the right place — but only by coincidence of the layout. Reading
+    ``_MEIPASS`` says what we mean instead of relying on that.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parents[2]
+
+
+BACKEND_ROOT = _backend_root()
 
 
 class Settings(BaseSettings):
@@ -60,6 +75,16 @@ class Settings(BaseSettings):
 
     data_dir: Path = default_data_dir()
     thumbnail_size: int = 320
+
+    # --- Desktop shell -----------------------------------------------------
+
+    static_dir: Path | None = None
+    """When set, the built frontend is served from ``/`` beside the API.
+
+    This is what makes the packaged app same-origin: one process serves both
+    halves, so the webview's relative ``/api`` URLs need no base URL and the
+    app needs no CORS exception. Left unset in development, where Vite serves
+    the frontend and proxies ``/api`` here."""
 
     # --- Local service hardening -------------------------------------------
 

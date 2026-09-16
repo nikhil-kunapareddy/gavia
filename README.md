@@ -82,6 +82,136 @@ Interactive API docs are at **http://localhost:8000/docs**.
 
 ---
 
+## Desktop app
+
+The packaged app is a [Tauri](https://tauri.app) shell around the same two
+halves you run in development. The target machine needs no Python and no
+`npm` — the backend is frozen by PyInstaller and travels inside the bundle,
+model included.
+
+### Build and install
+
+```bash
+cd frontend
+npm run tauri:build
+```
+
+That freezes the backend, builds the frontend, compiles the shell, and packages
+the result:
+
+```
+src-tauri/target/release/bundle/macos/Gavia.app               176 MB
+src-tauri/target/release/bundle/dmg/Gavia_0.1.0_aarch64.dmg    84 MB
+```
+
+Open the `.dmg` and drag `Gavia.app` into Applications. Gatekeeper does not
+object to a bundle built on the machine that runs it — a locally produced app
+carries no quarantine flag. Copy the `.dmg` to a second machine and it will
+object: the bundle is ad-hoc signed, not signed with a Developer ID, and
+notarisation is a separate step this repo does not do yet.
+
+### The bundle must be properly signed, or file dialogs abort the app
+
+`bundle.macOS.signingIdentity` is set to `-`, which ad-hoc signs the whole
+bundle. This is not cosmetic. Without it the app ships with only the linker's
+signature on the main executable: no resource seal, `Info.plist` unbound, and
+`codesign --verify` failing outright.
+
+Such a bundle launches and runs perfectly — until something asks AppKit for a
+file dialog. The open/save panel is hosted out of process, and that service
+refuses to start for a bundle whose signature does not check out, so
+`+[NSOpenPanel openPanel]` returns nil. wry does not guard against nil there,
+so the Rust binding panics and the process aborts. The symptom is the whole app
+vanishing the moment you click **Choose a photo** — with no error, because the
+part that would report one is the part that died.
+
+`scripts/make-dmg.sh` runs `codesign --verify --deep --strict` before
+packaging, so a bundle in that state fails the build instead of reaching a
+user.
+
+Hardened runtime is deliberately off. It turns on library validation, which
+rejects the unsigned dylibs PyInstaller puts in the sidecar, and it buys
+nothing until there is a Developer ID and notarisation to go with it.
+
+### Why the `.dmg` is not built by Tauri
+
+`bundle.targets` is `["app"]`, and `scripts/make-dmg.sh` makes the disk image.
+Tauri's own `dmg` target mounts a scratch volume, drives Finder with AppleScript
+to lay out the window, then unmounts — and on a bundle this size that unmount
+races Spotlight indexing the freshly copied app:
+
+```
+hdiutil: couldn't unmount "disk5" - Resource busy
+```
+
+It fails perhaps half the time, and a failed run leaves the scratch volume
+mounted, which then breaks the *next* run too. `hdiutil create` builds the image
+straight from a directory and never mounts it, so there is nothing to race. The
+cost is the decorated background window; the `Applications` symlink in the image
+is what that window was for.
+
+Most of the 176 MB is the Python runtime and ONNX Runtime (~120 MB) plus the
+model (36 MB). Nothing in it is downloaded at run time; the app is offline in
+the same sense the backend is.
+
+### One origin, one process
+
+The sidecar serves **both** halves — the API under `/api` and the built
+frontend under `/` — and the window is pointed at it:
+
+```
+Gavia.app
+  └─ gavia (Tauri shell)
+       ├─ spawns  Resources/gavia-backend/gavia-backend  --port 0
+       │            serving  /api  and  /  (Resources/web)
+       └─ window  ──▶  http://127.0.0.1:<port>
+```
+
+That is why `frontend/src/services/api.ts` can use plain relative URLs with no
+base URL to configure: in the packaged app they resolve to the same process
+that served the page, exactly as they resolve through Vite's proxy in
+development. Serving the frontend over `tauri://` instead would have meant an
+absolute API URL, a CORS exception, and two ways for the two halves to disagree.
+
+Startup is a handshake rather than a sleep:
+
+1. The shell spawns the sidecar with `--port 0`.
+2. The sidecar binds a free port itself and prints `GAVIA_PORT=<n>` before
+   loading the model. It binds *first* and passes the live socket to uvicorn,
+   so there is no window in which another process can take the port.
+3. The shell reads that line, polls `/api/health` until it answers, and only
+   then opens the window.
+
+The shell also mints a UUID per launch, passes it to the sidecar as
+`AUTH_TOKEN`, and injects it into the webview as `window.__GAVIA_TOKEN__`
+before any page script runs. Loopback keeps the backend off the network but not
+away from other processes on the machine; the token is what makes it yours. It
+never travels over the wire — anything that could read it from a response could
+have made the request itself.
+
+Quitting the app kills the sidecar. It is an ordinary child process, and
+nothing else would reap it.
+
+### Working on the shell
+
+```bash
+cd frontend && npm run tauri:dev
+```
+
+A debug build talks to Vite on :5173 and expects you to run uvicorn yourself,
+so the usual edit-and-reload loop is unchanged and UI work never waits on
+PyInstaller. To exercise the packaged path instead:
+
+```bash
+npm run build:sidecar          # ~2 min; needs requirements-build.txt
+GAVIA_SIDECAR=1 npm run tauri:dev
+```
+
+If a launch fails before the window appears, the shell's log is at
+`~/Library/Logs/ai.humanitarians.gavia/Gavia.log`.
+
+---
+
 ## Testing
 
 Three levels. All of them pass on a clean checkout.
@@ -278,11 +408,15 @@ documents every setting; the ones you are most likely to touch:
 | `DATA_DIR` | platform per-user data directory |
 | `MAX_UPLOAD_BYTES` | `20971520` (20 MB) |
 | `AUTH_TOKEN` | empty (open) |
+| `STATIC_DIR` | empty (Vite serves the frontend) |
 
 `AUTH_TOKEN` gates every endpoint except `/api/health` behind an
 `X-Gavia-Token` header. Binding to 127.0.0.1 keeps the service off the network
 but not away from other processes on the machine; the packaged desktop shell
 generates a token per launch so only the app it started can drive the backend.
+
+`STATIC_DIR` is what the packaged app sets to serve the frontend from the same
+process as the API — see [Desktop app](#desktop-app).
 
 ## Model
 

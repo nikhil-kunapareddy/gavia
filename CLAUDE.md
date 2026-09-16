@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Gavia finds loons in field photographs: upload an image, get bounding boxes with
 confidence scores, keep the ones worth keeping. React 18 + TypeScript (Vite,
 Tailwind) frontend, FastAPI (Python 3.11) backend, YOLO11s running locally via
-ONNX Runtime. Fully offline; the eventual target is a Tauri desktop app.
+ONNX Runtime. Fully offline, and it ships as a Tauri desktop app with the
+backend frozen into the bundle.
 
 ## Commands
 
@@ -46,6 +47,20 @@ npm run test:e2e
 
 `Settings` loads `.env` relative to the working directory, so starting uvicorn
 from the repo root silently ignores `backend/.env`.
+
+Desktop (from `frontend/`):
+
+```bash
+npm run tauri:dev            # debug shell against Vite; run uvicorn yourself
+npm run build:sidecar        # freeze the backend, ~2 min
+GAVIA_SIDECAR=1 npm run tauri:dev   # debug shell against the frozen backend
+npm run tauri:build          # sidecar + frontend + shell + .dmg
+npm run package:dmg          # just re-package an already-built .app
+cd src-tauri && cargo test   # the shell's own unit tests
+```
+
+`build:sidecar` needs `backend/requirements-build.txt` installed into
+`gavia-venv`; PyInstaller is deliberately absent from `requirements.txt`.
 
 The model scripts need `ultralytics`, which is deliberately absent from the
 backend's environment. Use the training venv — see `backend/scripts/README.md`:
@@ -92,6 +107,18 @@ labelled loons are larger than a 640px tile, so tiles see fragments and
 precision collapses (AP@0.5 0.892 single-pass vs 0.231 tiled). The code is
 correct and kept for genuine small-object drone imagery. The numbers are in
 `Detector`'s docstring and the README.
+
+**The desktop shell serves both halves from one origin.** `frontend/src-tauri`
+spawns the PyInstaller-frozen backend, which serves the API under `/api` *and*
+the built frontend under `/` (`Settings.static_dir`), then points the window at
+`http://127.0.0.1:<port>`. That is what lets `services/api.ts` use relative
+URLs with no base URL and no CORS exception, in the packaged app exactly as
+through Vite's proxy. The sidecar binds its own port and prints
+`GAVIA_PORT=<n>` before loading the model, passing the live socket to uvicorn
+so no other process can claim the port in between; the shell mints a UUID per
+launch, passes it as `AUTH_TOKEN`, and injects it as `window.__GAVIA_TOKEN__`.
+Serving the frontend over `tauri://` instead would mean an absolute API URL and
+two ways for the halves to disagree — don't.
 
 **Storage** is raw `sqlite3` (no ORM) plus files on disk: originals byte-for-byte
 in `images/`, WebP thumbnails in `thumbs/`, metadata in `gavia.db`. Schema
@@ -157,6 +184,35 @@ the fake backend in `App.workflow.test.tsx`, and the `Api*` interfaces in
   photo and then the failed insert's rollback deletes the original's files.
 - Playwright's e2e servers use ports 5179/8111, not the dev ports, so a run
   cannot collide with a dev server you have open.
+- `require_token` and the `/api/health` and `/api/model` routes read the
+  *module-level* `settings`, not the instance passed to `create_app`. That is
+  why `app/__main__.py` configures the sidecar through the environment rather
+  than through constructor arguments, and why `test_api.py` mutates the global
+  to test auth.
+- The sidecar is built `onedir`, not `onefile`, and bundled as a Tauri
+  *resource* rather than an `externalBin` — `externalBin` takes a single file,
+  and onefile re-extracts ~160 MB on every launch. Resource copying does
+  preserve the executable bit.
+- `Path(sys._MEIPASS)` is where the frozen app finds `models/`; see
+  `_backend_root()` in `core/config.py`.
+- **The bundle must be ad-hoc signed or file dialogs abort the app.**
+  `bundle.macOS.signingIdentity: "-"` is load-bearing. Without it the bundle
+  carries only the linker's signature on the main executable — no resource
+  seal, `Info.plist` unbound, `codesign --verify` failing. The app then runs
+  fine until AppKit is asked for an out-of-process file panel, which refuses to
+  start for an invalid bundle; `+[NSOpenPanel openPanel]` returns nil, wry does
+  not guard it, and the process aborts with SIGABRT the moment the user clicks
+  upload. `scripts/make-dmg.sh` verifies the signature before packaging so this
+  cannot reach a user again.
+- `hardenedRuntime` is off on purpose: it enables library validation, which
+  rejects PyInstaller's unsigned dylibs, and is pointless without notarisation.
+- The `.dmg` is built by `frontend/scripts/make-dmg.sh`, not Tauri, and
+  `bundle.targets` is `["app"]`. Tauri's dmg target mounts a scratch volume and
+  drives Finder over AppleScript; on a bundle this size the unmount races
+  Spotlight and fails with `Resource busy` about half the time, leaving the
+  volume mounted so the *next* build fails too. `hdiutil create` never mounts.
+- The `.app` is ad-hoc signed, not Developer ID signed, so it runs on the
+  machine that built it but will trip Gatekeeper if copied elsewhere.
 - `e2e/` is Node, not React: it lives in `tsconfig.node.json` and the
   `react-hooks` rule is off there (it mistakes Playwright's fixture `use()`
   for React's `use`).
