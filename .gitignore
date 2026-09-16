@@ -39,6 +39,11 @@ release/
 coverage/
 *.tsbuildinfo
 
+# --- Playwright ---
+test-results/
+playwright-report/
+playwright/.cache/
+
 # --- Rust / Tauri backend ---
 target/
 **/*.rs.bk
