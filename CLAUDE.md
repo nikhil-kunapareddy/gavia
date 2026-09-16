@@ -117,6 +117,13 @@ through Vite's proxy. The sidecar binds its own port and prints
 `GAVIA_PORT=<n>` before loading the model, passing the live socket to uvicorn
 so no other process can claim the port in between; the shell mints a UUID per
 launch, passes it as `AUTH_TOKEN`, and injects it as `window.__GAVIA_TOKEN__`.
+The sidecar's stdin is a lifetime link, not a channel: the shell holds the
+write end open and never writes to it, and `--exit-with-parent` stops the
+backend on EOF. `Backend::shutdown` only covers an orderly quit — a shell that
+is killed or aborts never reaches `RunEvent::Exit`, and used to leave the
+backend running on the user's database with no window left to close it. Do not
+hand the child `Stdio::null()` or `take()` the handle; either reads as "shell
+gone" and stops the backend before it serves anything.
 Serving the frontend over `tauri://` instead would mean an absolute API URL and
 two ways for the halves to disagree — don't.
 
@@ -144,6 +151,9 @@ the only module that calls `fetch`, and it turns every failure into a typed
 - Prettier: no semicolons, single quotes, 100 columns. ESLint runs
   `recommendedTypeChecked`, so new source files must fall under
   `tsconfig.app.json`'s `include: ["src"]` or linting fails.
+- `ruff` is installed in `gavia-venv` but is not this project's linter. It
+  reports ~54 errors on untouched files and its formatter disagrees with the
+  repo's style; the Python here is kept by hand. Don't run it.
 - `src/test/setup.ts` shims `localStorage` and `URL.createObjectURL`; don't
   re-mock those globally in individual tests.
 
@@ -204,6 +214,18 @@ the fake backend in `App.workflow.test.tsx`, and the `Api*` interfaces in
   not guard it, and the process aborts with SIGABRT the moment the user clicks
   upload. `scripts/make-dmg.sh` verifies the signature before packaging so this
   cannot reach a user again.
+- **A valid signature does not rule that abort out.** `+[NSOpenPanel openPanel]`
+  also returns nil when the panel service stalls for reasons outside the
+  bundle: AppKit waits 60s inside `_initBridgeAndStuff`, then
+  `NSSavePanel.m:448` asserts *Advance to configuration phase semaphore timed
+  out*. Same nil, same SIGABRT. A wedged File Provider daemon does it, since
+  the panel enumerates every registered domain to build its sidebar. Before
+  suspecting the bundle, check `log show --predicate 'process == "gavia"'` for
+  that assertion, and look at the gap between the click and the crash — 60s
+  means the timeout, not the signature. A dozen lines of Swift calling
+  `NSOpenPanel()` in an ad-hoc signed bundle tells you in one run whether it is
+  the machine or this app. wry 0.56 downgrades the nil to a cancelled picker;
+  tauri 2.11 pins wry 0.55.
 - `hardenedRuntime` is off on purpose: it enables library validation, which
   rejects PyInstaller's unsigned dylibs, and is pointless without notarisation.
 - The `.dmg` is built by `frontend/scripts/make-dmg.sh`, not Tauri, and
