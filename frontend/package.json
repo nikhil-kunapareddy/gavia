@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:sidecar": "../gavia-venv/bin/python ../backend/scripts/build_sidecar.py",
+    "build:sidecar": "python ../backend/scripts/build_sidecar.py",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "npm run build:sidecar && tauri build && npm run package:dmg",
+    "tauri:build": "npm run build:sidecar && tauri build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",

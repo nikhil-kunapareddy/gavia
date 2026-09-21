@@ -32,6 +32,21 @@ function authToken(): string | undefined {
   return (globalThis as { __GAVIA_TOKEN__?: string }).__GAVIA_TOKEN__
 }
 
+/**
+ * Append the auth token as a query param, for URLs handed to `<img src>`.
+ *
+ * `fetch` calls can carry the token as a header, but a plain `<img>` cannot
+ * attach one, so the image and thumbnail routes accept it in the URL too.
+ * A no-op when there is no token (development) or the URL is not ours to sign
+ * (an object URL for a not-yet-saved preview).
+ */
+export function withAssetToken(path: string): string {
+  const token = authToken()
+  if (!token || !path.startsWith('/api/')) return path
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}token=${encodeURIComponent(token)}`
+}
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = authToken()
   const headers = new Headers(init.headers)

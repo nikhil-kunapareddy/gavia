@@ -1,5 +1,6 @@
 import { ChevronRight, History } from 'lucide-react'
 import { formatDate, highestConfidence, pluralizeLoons, toPercent } from '../lib/format'
+import { withAssetToken } from '../services/api'
 import { thumbnailUrl } from '../services/historyService'
 import type { DetectionResult } from '../types/detection'
 
@@ -56,7 +57,7 @@ export function HistoryPage({
         <div className="history-grid">
           {history.map((item) => (
             <button className="history-card" key={item.id} onClick={() => onOpenResult(item)}>
-              <img src={thumbnailUrl(item.id)} alt="" loading="lazy" />
+              <img src={withAssetToken(thumbnailUrl(item.id))} alt="" loading="lazy" />
               <span className="history-card-content">
                 <span
                   className={item.detections.length ? 'history-status found' : 'history-status'}

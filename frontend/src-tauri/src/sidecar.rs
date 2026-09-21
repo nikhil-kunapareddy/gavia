@@ -60,7 +60,10 @@ impl Backend {
 
 /// Launch the sidecar and wait until it answers.
 pub fn start(app: &AppHandle) -> Result<Backend, String> {
-    let binary = resource(app, "gavia-backend/gavia-backend")?;
+    let binary = resource(
+        app,
+        &format!("gavia-backend/gavia-backend{}", std::env::consts::EXE_SUFFIX),
+    )?;
     let web = resource(app, "web")?;
     let token = Uuid::new_v4().to_string();
 

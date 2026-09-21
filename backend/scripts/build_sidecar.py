@@ -35,7 +35,7 @@ SPEC = BACKEND / "gavia-backend.spec"
 DIST = BACKEND / "dist"
 WORK = BACKEND / "build"
 BUNDLE = DIST / "gavia-backend"
-BINARY = BUNDLE / "gavia-backend"
+BINARY = BUNDLE / ("gavia-backend.exe" if sys.platform == "win32" else "gavia-backend")
 
 PORT_BANNER = "GAVIA_PORT="
 STARTUP_TIMEOUT = 60.0

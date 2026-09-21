@@ -1,6 +1,7 @@
 import { Check, Download, FileText, RotateCcw, Save, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { highestConfidence, pluralizeLoons, toPercent } from '../lib/format'
+import { withAssetToken } from '../services/api'
 import type { DetectionResult as Result } from '../types/detection'
 import { DetectionOverlay } from './DetectionOverlay'
 
@@ -77,7 +78,7 @@ function downloadAnnotated(result: Result): Promise<boolean> {
 
     // Assigned last: setting src before the handlers can miss the load event
     // for images that resolve synchronously from cache.
-    image.src = result.imageUrl
+    image.src = withAssetToken(result.imageUrl)
   })
 }
 

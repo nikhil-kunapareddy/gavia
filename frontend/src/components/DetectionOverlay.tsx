@@ -1,4 +1,5 @@
 import type { Detection } from '../types/detection'
+import { withAssetToken } from '../services/api'
 
 interface DetectionOverlayProps {
   imageUrl: string
@@ -9,7 +10,7 @@ interface DetectionOverlayProps {
 export function DetectionOverlay({ imageUrl, detections, alt }: DetectionOverlayProps) {
   return (
     <div className="annotation-frame">
-      <img src={imageUrl} alt={alt} />
+      <img src={withAssetToken(imageUrl)} alt={alt} />
       {detections.map((detection, index) => (
         <div
           className="detection-box"

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import secrets
 
-from fastapi import Header, Request
+from fastapi import Header, Query, Request
 
 from app.core.config import settings
 from app.core.errors import UnauthorizedError
@@ -34,19 +34,26 @@ def get_repository(request: Request) -> ResultRepository:
     return request.app.state.repository
 
 
-def require_token(x_gavia_token: str | None = Header(default=None)) -> None:
+def require_token(
+    x_gavia_token: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+) -> None:
     """Gate the API on a shared token, when one is configured.
 
     Binding to 127.0.0.1 keeps the service off the network, but not away from
     other processes on the same machine. The desktop shell generates a token
     per launch and passes it to the frontend, so only the app it started can
     drive the sidecar. Unset in development, where there is nothing to protect.
+
+    Accepts the token as either the ``X-Gavia-Token`` header or a ``token``
+    query parameter. The header is what `services/api.ts` sends, but plain
+    `<img src>` tags cannot attach custom headers, so the image and thumbnail
+    routes are reached with the token in the URL instead.
     """
     if not settings.auth_token:
         return
 
+    candidate = x_gavia_token or token
     # Constant-time: a plain != leaks the token prefix through timing.
-    if x_gavia_token is None or not secrets.compare_digest(
-        x_gavia_token, settings.auth_token
-    ):
+    if candidate is None or not secrets.compare_digest(candidate, settings.auth_token):
         raise UnauthorizedError()
