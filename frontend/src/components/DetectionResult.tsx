@@ -173,6 +173,10 @@ export function DetectionResult({
             <summary>View details</summary>
             <dl>
               <div>
+                <dt>Loons detected</dt>
+                <dd>{result.detections.length}</dd>
+              </div>
+              <div>
                 <dt>File name</dt>
                 <dd>{result.fileName}</dd>
               </div>

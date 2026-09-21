@@ -228,4 +228,14 @@ describe('the details disclosure', () => {
     expect(screen.getByText('photo.jpg')).toBeInTheDocument()
     expect(screen.getByText('1.1 seconds')).toBeInTheDocument()
   })
+
+  it('shows how many loons were detected', async () => {
+    const user = userEvent.setup()
+    renderResult([detection('a', 0.9), detection('b', 0.8), detection('c', 0.7)])
+
+    await user.click(screen.getByText('View details'))
+
+    expect(screen.getByText('Loons detected')).toBeInTheDocument()
+    expect(screen.getByText('Loons detected').nextElementSibling).toHaveTextContent('3')
+  })
 })
