@@ -169,7 +169,7 @@ pub fn letterbox(image: &Rgb, model_size: u32, out: &mut [f32]) -> Letterbox {
     for y in 0..new_h {
         let row = &patch[y * new_w * 3..(y + 1) * new_w * 3];
         let base = (top + y) * size + left;
-        for (x, pixel) in row.chunks_exact(3).enumerate() {
+        for (x, pixel) in row.as_chunks::<3>().0.iter().enumerate() {
             for c in 0..3 {
                 out[c * plane + base + x] = f32::from(pixel[c]) / 255.0;
             }

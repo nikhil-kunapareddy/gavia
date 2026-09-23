@@ -212,19 +212,20 @@ fn decode_jpeg(
         jpeg_decoder::PixelFormat::RGB24 => pixels,
         jpeg_decoder::PixelFormat::L8 => pixels.iter().flat_map(|&v| [v, v, v]).collect(),
         jpeg_decoder::PixelFormat::L16 => pixels
-            .chunks_exact(2)
-            .flat_map(|c| {
-                let v = c[0];
-                [v, v, v]
-            })
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .flat_map(|&[v, _]| [v, v, v])
             .collect(),
         jpeg_decoder::PixelFormat::CMYK32 => pixels
-            .chunks_exact(4)
-            .flat_map(|c| {
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .flat_map(|&[c, m, y, k]| {
                 // Same naive inversion Pillow applies to Adobe CMYK JPEGs.
-                let k = u16::from(c[3]);
+                let k = u16::from(k);
                 let channel = |v: u8| ((u16::from(v) * k) / 255) as u8;
-                [channel(c[0]), channel(c[1]), channel(c[2])]
+                [channel(c), channel(m), channel(y)]
             })
             .collect(),
     };
@@ -260,11 +261,11 @@ fn box_reduce(rgb: &[u8], width: u32, height: u32, factor: u32) -> (u32, u32, Ve
         let block_h = rows.len() as u32;
         for y in rows {
             let row = &rgb[y * w * 3..(y + 1) * w * 3];
-            for (x, pixel) in row.chunks_exact(3).enumerate() {
+            for (x, &[r, g, b]) in row.as_chunks::<3>().0.iter().enumerate() {
                 let base = (x / f) * 3;
-                sums[base] += u32::from(pixel[0]);
-                sums[base + 1] += u32::from(pixel[1]);
-                sums[base + 2] += u32::from(pixel[2]);
+                sums[base] += u32::from(r);
+                sums[base + 1] += u32::from(g);
+                sums[base + 2] += u32::from(b);
             }
         }
         for ox in 0..out_w {
