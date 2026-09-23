@@ -4,6 +4,8 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-23
+
 ### Added
 - Windows and Linux support. CI builds a `.dmg` (Apple Silicon), a Windows `-setup.exe`, and Linux `.deb`, `.rpm` and `.AppImage` files for every change.
 - A "Loons detected" count in the result details.
