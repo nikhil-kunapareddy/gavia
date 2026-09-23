@@ -5,6 +5,7 @@ import { SiteHeader } from './components/SiteHeader'
 import { revokeIfObjectUrl } from './lib/imageFile'
 import { applyTheme, readTheme, saveTheme } from './lib/theme'
 import { CheckPage } from './pages/CheckPage'
+import { HelpPage } from './pages/HelpPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { SettingsPage, type SettingsBusy } from './pages/SettingsPage'
 import { ApiError } from './services/api'
@@ -304,6 +305,8 @@ function App() {
             onSelectModel={(id) => void runSetting('model', () => selectModel(id))}
           />
         )}
+
+        {page === 'help' && <HelpPage />}
       </main>
 
       <SiteFooter />

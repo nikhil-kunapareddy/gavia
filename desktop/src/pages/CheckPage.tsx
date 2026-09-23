@@ -1,4 +1,4 @@
-import { ChevronRight, LoaderCircle, ShieldCheck, Sparkles } from 'lucide-react'
+import { ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
 import { ImageUploader } from '../components/ImageUploader'
 
 interface CheckPageProps {
@@ -24,23 +24,12 @@ export function CheckPage({
     <>
       <div className="page-intro">
         <div className="intro-copy">
-          <p className="eyebrow">
-            <span className="eyebrow-line" /> Field image check
-          </p>
           <h1>
             Is this a <em>loon?</em>
           </h1>
           <p className="intro-lede">
             Upload a photo or take a picture to check whether a loon is present.
           </p>
-        </div>
-        <div className="intro-stamp">
-          <ShieldCheck size={17} />
-          <span>
-            Built for careful
-            <br />
-            conservation work
-          </span>
         </div>
       </div>
 
@@ -77,11 +66,6 @@ export function CheckPage({
             </span>
           </div>
         )}
-      </div>
-
-      <div className="small-note">
-        <span className="note-rule" /> AI-generated results can contain errors. Review results when
-        accuracy is important.
       </div>
     </>
   )

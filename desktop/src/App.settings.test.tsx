@@ -4,7 +4,7 @@
  * services/settingsService.test.ts, and the Rust side in tests/settings.rs.
  */
 
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -36,16 +36,16 @@ vi.mock('./services/settingsService', () => ({
 
 function makeSettings(overrides: Partial<AppSettings> = {}): AppSettings {
   return {
-    dataDir: '/Users/me/Library/Application Support/Gavia',
-    defaultDataDir: '/Users/me/Library/Application Support/Gavia',
+    dataDir: '/Users/me/Library/Gavia',
+    defaultDataDir: '/Users/me/Library/Gavia',
     isDefaultDataDir: true,
     dataDirLocked: false,
-    modelsDir: '/Users/me/Library/Application Support/Gavia/models',
+    modelsDir: '/Users/me/Library/Gavia/models',
     model: 'loon_v1',
     models: [
       {
         id: 'loon_v1',
-        name: 'loon_v1',
+        name: 'Loonet 1.0',
         architecture: 'YOLO11s',
         classes: ['common loon'],
         metrics: { precision: 0.906, recall: 0.879, mAP50: 0.892 },
@@ -83,7 +83,7 @@ async function openSettings() {
   render(<App />)
   await waitFor(() => expect(loadHistory).toHaveBeenCalled())
   await user.click(screen.getByRole('button', { name: /Settings/ }))
-  await screen.findByText('/Users/me/Library/Application Support/Gavia')
+  await screen.findByText('/Users/me/Library/Gavia')
   return user
 }
 
@@ -127,6 +127,14 @@ describe('storage location', () => {
     expect(openFolder).toHaveBeenCalledWith('data')
   })
 
+  it('reports a folder that will not open', async () => {
+    const user = await openSettings()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(openFolder).mockRejectedValue(new Error('no file manager'))
+    await user.click(screen.getByRole('button', { name: 'Open folder' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be opened/)
+  })
+
   it('moves history and reloads it from the new place', async () => {
     const user = await openSettings()
     vi.mocked(chooseDataDir).mockResolvedValue(
@@ -137,7 +145,7 @@ describe('storage location', () => {
     await user.click(screen.getByRole('button', { name: /Change/ }))
 
     expect(await screen.findByText('/Volumes/Field/Gavia')).toBeInTheDocument()
-    expect(chooseDataDir).toHaveBeenCalledWith('/Users/me/Library/Application Support/Gavia')
+    expect(chooseDataDir).toHaveBeenCalledWith('/Users/me/Library/Gavia')
     expect(loadHistory).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: /Use default/ })).toBeInTheDocument()
   })
@@ -202,14 +210,22 @@ describe('storage location', () => {
 })
 
 describe('detection model', () => {
-  it('lists every model and describes the chosen one', async () => {
+  it('names the only model without offering a choice', async () => {
+    vi.mocked(getSettings).mockResolvedValue(
+      makeSettings({ models: makeSettings().models.slice(0, 1) }),
+    )
+    await openSettings()
+    expect(screen.getByText('Loonet 1.0')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Model' })).not.toBeInTheDocument()
+    expect(screen.queryByText('YOLO11s')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument()
+  })
+
+  it('offers a choice once a second model is added', async () => {
     await openSettings()
     const select = screen.getByRole('combobox', { name: 'Model' })
     expect(select).toHaveValue('loon_v1')
     expect(screen.getByRole('option', { name: 'loon_v2 (added)' })).toBeInTheDocument()
-    expect(screen.getByText('YOLO11s')).toBeInTheDocument()
-    expect(screen.getByText('0.892')).toBeInTheDocument()
-    expect(screen.getByText('Ready')).toBeInTheDocument()
   })
 
   it('switches model and waits for it to load', async () => {
@@ -223,8 +239,8 @@ describe('detection model', () => {
 
     expect(selectModel).toHaveBeenCalledWith('loon_v2')
     expect(await screen.findByText('Loading…')).toBeInTheDocument()
-    expect(await screen.findByText('Ready', {}, { timeout: 3000 })).toBeInTheDocument()
-    expect(screen.getByText('YOLO11m')).toBeInTheDocument()
+    await waitForElementToBeRemoved(() => screen.queryByText('Loading…'), { timeout: 3000 })
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('loon_v2')
   })
 
   it('says so when a model fails to load', async () => {
@@ -233,19 +249,17 @@ describe('detection model', () => {
     expect(screen.getByText('Could not load this model')).toBeInTheDocument()
   })
 
-  it('opens the models folder', async () => {
-    const user = await openSettings()
-    await user.click(screen.getByRole('button', { name: /Open models folder/ }))
-    expect(openFolder).toHaveBeenCalledWith('models')
+  it('has no models folder button', async () => {
+    await openSettings()
+    expect(screen.queryByRole('button', { name: /Open models folder/ })).not.toBeInTheDocument()
   })
+})
 
-  it('reports a folder that will not open', async () => {
-    const user = await openSettings()
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.mocked(openFolder).mockRejectedValue(new Error('no file manager'))
-    await user.click(screen.getByRole('button', { name: /Open models folder/ }))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be opened/)
-  })
+it('shows the app version', async () => {
+  await openSettings()
+  expect(screen.getByRole('heading', { name: 'App version' })).toBeInTheDocument()
+  expect(screen.getByText('0.1.0')).toBeInTheDocument()
+  expect(screen.queryByText('Gavia 0.1.0')).not.toBeInTheDocument()
 })
 
 it('reports settings that fail to load', async () => {

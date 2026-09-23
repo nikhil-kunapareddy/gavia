@@ -36,7 +36,7 @@ const saved = new Map<string, DetectionResult>()
 const PREVIEW_MODELS: AppSettings['models'] = [
   {
     id: 'loon_v1',
-    name: 'loon_v1',
+    name: 'Loonet 1.0',
     architecture: 'YOLO11s',
     classes: ['common loon'],
     metrics: { precision: 0.906, recall: 0.879, mAP50: 0.892 },
@@ -108,7 +108,7 @@ export async function previewCall<T>(command: string, args?: Args): Promise<T> {
         timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00'),
         imageWidth: 4000,
         imageHeight: 3000,
-        modelName: 'loon_v1 (browser preview)',
+        modelName: 'Loonet 1.0 (browser preview)',
         tilesProcessed: 1,
         saved: false,
       }

@@ -1,4 +1,4 @@
-import { History, Menu, Settings, X } from 'lucide-react'
+import { CircleHelp, History, Menu, Settings, X } from 'lucide-react'
 import type { Page } from '../types/navigation'
 
 interface SiteHeaderProps {
@@ -40,6 +40,14 @@ export function SiteHeader({
           </button>
           <button className={navClass(page === 'settings')} onClick={() => onNavigate('settings')}>
             <Settings size={16} /> Settings
+          </button>
+          <button
+            className={navClass(page === 'help')}
+            onClick={() => onNavigate('help')}
+            aria-label="Help"
+            title="Help"
+          >
+            <CircleHelp size={18} />
           </button>
         </nav>
         <button

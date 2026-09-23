@@ -1,5 +1,3 @@
-import { ShieldCheck } from 'lucide-react'
-
 const STEPS = [
   'Upload or take a photo.',
   'The system analyzes the image.',
@@ -7,11 +5,10 @@ const STEPS = [
   'Review the result with your own expertise.',
 ]
 
-export function AboutPage() {
+export function HelpPage() {
   return (
     <section className="about-page">
       <div className="about-hero">
-        <p className="eyebrow">A tool for the field</p>
         <h1>
           Built to support
           <br />
@@ -25,7 +22,6 @@ export function AboutPage() {
 
       <div className="about-content">
         <div>
-          <p className="eyebrow">The simple version</p>
           <h2>How it works</h2>
         </div>
         <ol className="steps">
@@ -36,17 +32,6 @@ export function AboutPage() {
             </li>
           ))}
         </ol>
-      </div>
-
-      <div className="important-note">
-        <ShieldCheck size={22} />
-        <div>
-          <strong>Important note</strong>
-          <p>
-            This tool is designed to assist researchers, not replace expert judgment. AI-generated
-            results can contain errors and should be reviewed when accuracy is important.
-          </p>
-        </div>
       </div>
     </section>
   )

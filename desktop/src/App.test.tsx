@@ -95,12 +95,17 @@ describe('App navigation', () => {
     expect(screen.getByRole('heading', { name: /Is this a loon\?/ })).toBeInTheDocument()
   })
 
-  it('keeps the about section on the settings page', async () => {
+  it('keeps how to use Gavia behind the help button, not in settings', async () => {
     const user = userEvent.setup()
     await renderApp()
+
     await user.click(screen.getByRole('button', { name: /Settings/ }))
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /Built to support/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Help' }))
     expect(screen.getByRole('heading', { name: /Built to support/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'How it works' })).toBeInTheDocument()
   })
 })
 

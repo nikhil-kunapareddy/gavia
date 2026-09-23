@@ -176,13 +176,3 @@ describe('once a file is chosen', () => {
     expect(document.querySelector('.drop-zone')).toBeNull()
   })
 })
-
-describe('camera capture', () => {
-  it('offers a capture input for use in the field', () => {
-    const { container } = renderEmpty()
-    const capture = container.querySelector('input[capture]')
-
-    expect(screen.getByRole('button', { name: /Take a photo/ })).toBeInTheDocument()
-    expect(capture).toHaveAttribute('capture', 'environment')
-  })
-})

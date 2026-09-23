@@ -1,4 +1,4 @@
-import { Camera, ImagePlus, Upload, X } from 'lucide-react'
+import { ImagePlus, Upload, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 interface ImageUploaderProps {
@@ -12,7 +12,6 @@ const accepted = 'image/jpeg,image/png,image/webp'
 
 export function ImageUploader({ file, previewUrl, onFile, onRemove }: ImageUploaderProps) {
   const uploadRef = useRef<HTMLInputElement>(null)
-  const cameraRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
 
@@ -96,20 +95,6 @@ export function ImageUploader({ file, previewUrl, onFile, onRemove }: ImageUploa
           onChange={(event) => acceptFile(event.target.files?.[0])}
         />
       </div>
-      <button
-        className="button button-outline camera-button"
-        onClick={() => cameraRef.current?.click()}
-      >
-        <Camera size={18} /> Take a photo
-      </button>
-      <input
-        ref={cameraRef}
-        className="sr-only"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={(event) => acceptFile(event.target.files?.[0])}
-      />
       {error && (
         <p className="error-text" role="alert">
           {error}

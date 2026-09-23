@@ -1,6 +1,5 @@
 import { FolderOpen, Monitor, Moon, RotateCcw, Sun } from 'lucide-react'
-import type { AppSettings, ModelEntry, ThemeChoice } from '../types/settings'
-import { AboutPage } from './AboutPage'
+import type { AppSettings, ModelEntry, ModelStatus, ThemeChoice } from '../types/settings'
 
 export type SettingsBusy = 'storage' | 'model' | null
 
@@ -22,20 +21,13 @@ const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System', icon: Monitor },
 ]
 
-const METRIC_LABELS: Record<string, string> = {
-  precision: 'Precision',
-  recall: 'Recall',
-  mAP50: 'AP@0.5',
-}
-
 function modelLabel(model: ModelEntry): string {
   return model.custom ? `${model.name} (added)` : model.name
 }
 
-function modelStatusText(settings: AppSettings): string {
-  if (settings.modelStatus === 'starting') return 'Loading…'
-  if (settings.modelStatus === 'degraded') return 'Could not load this model'
-  return 'Ready'
+/** A ready model says nothing; only loading and failure need a word. */
+function modelStatusText(status: Exclude<ModelStatus, 'ok'>): string {
+  return status === 'starting' ? 'Loading…' : 'Could not load this model'
 }
 
 export function SettingsPage({
@@ -143,66 +135,49 @@ export function SettingsPage({
       <div className="settings-section">
         <div className="settings-label">
           <h2>Detection model</h2>
-          <p>
-            To try a retrained model, put its <code>.onnx</code> file and matching{' '}
-            <code>.json</code> in the models folder. It will appear here.
-          </p>
+          <p>The model Gavia uses to find loons in your photos.</p>
         </div>
         {settings ? (
           <div className="settings-control">
-            <label className="settings-field">
-              <span>Model</span>
-              <select
-                value={settings.model}
-                onChange={(event) => onSelectModel(event.target.value)}
-                disabled={busy === 'model' || settings.modelStatus === 'starting'}
-              >
-                {settings.models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {modelLabel(model)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className={`model-status model-status-${settings.modelStatus}`}>
-              <span className="status-light" aria-hidden="true" />
-              {modelStatusText(settings)}
-            </p>
-            {selected && (
-              <dl className="model-facts">
-                <div>
-                  <dt>Architecture</dt>
-                  <dd>{selected.architecture}</dd>
-                </div>
-                <div>
-                  <dt>Finds</dt>
-                  <dd>{selected.classes.join(', ')}</dd>
-                </div>
-                {Object.entries(METRIC_LABELS)
-                  .filter(([key]) => key in selected.metrics)
-                  .map(([key, label]) => (
-                    <div key={key}>
-                      <dt>{label}</dt>
-                      <dd>{selected.metrics[key].toFixed(3)}</dd>
-                    </div>
+            {/* A choice only appears once a second model has been added. */}
+            {settings.models.length > 1 ? (
+              <label className="settings-field">
+                <span>Model</span>
+                <select
+                  value={settings.model}
+                  onChange={(event) => onSelectModel(event.target.value)}
+                  disabled={busy === 'model' || settings.modelStatus === 'starting'}
+                >
+                  {settings.models.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {modelLabel(model)}
+                    </option>
                   ))}
-              </dl>
+                </select>
+              </label>
+            ) : (
+              <p className="settings-value">{selected?.name ?? settings.model}</p>
             )}
-            <div className="settings-actions">
-              <button className="button button-outline" onClick={() => onOpenFolder('models')}>
-                <FolderOpen size={16} /> Open models folder
-              </button>
-            </div>
+            {settings.modelStatus !== 'ok' && (
+              <p className={`model-status model-status-${settings.modelStatus}`}>
+                <span className="status-light" aria-hidden="true" />
+                {modelStatusText(settings.modelStatus)}
+              </p>
+            )}
           </div>
         ) : (
           <p className="settings-hint">Loading…</p>
         )}
       </div>
 
-      <div className="settings-about">
-        <AboutPage />
-        {settings && <p className="settings-version">Gavia {settings.version}</p>}
-      </div>
+      {settings && (
+        <div className="settings-section">
+          <div className="settings-label">
+            <h2>App version</h2>
+          </div>
+          <p className="settings-value">{settings.version}</p>
+        </div>
+      )}
     </section>
   )
 }

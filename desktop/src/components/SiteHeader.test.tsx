@@ -28,6 +28,7 @@ describe('navigation', () => {
     ['Check an image', 'check'],
     ['Previous checks', 'results'],
     ['Settings', 'settings'],
+    ['Help', 'help'],
   ])('navigates to %s', async (label, page) => {
     const user = userEvent.setup()
     renderHeader()

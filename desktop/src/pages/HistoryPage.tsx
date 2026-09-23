@@ -27,7 +27,6 @@ export function HistoryPage({
     <section className="history-page">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Your field notes</p>
           <h1>Previous checks</h1>
           <p className="intro-lede">Review images you&apos;ve checked with the loon detector.</p>
         </div>
