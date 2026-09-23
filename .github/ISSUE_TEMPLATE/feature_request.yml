@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest something Gavia should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: situation
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation rather than the solution — what are you working on when you need this?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Gavia to do?
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you work around it today?

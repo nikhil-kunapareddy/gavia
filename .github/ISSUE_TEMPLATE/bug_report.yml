@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in Gavia isn't working.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a photo…
+        2. Click "Check for loons"…
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: System version
+      placeholder: e.g. macOS 15.3, Windows 11 24H2, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Gavia version
+      description: The version in the file name you downloaded, e.g. 0.2.0.
+    validations:
+      required: true
+  - type: textarea
+    id: photo
+    attributes:
+      label: The photo, if it's about a detection
+      description: Attach the image if you can share it, or describe it (size, format, camera).
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Logs help. They are in the app's log folder — see CONTRIBUTING.md, "Where your data lives".
