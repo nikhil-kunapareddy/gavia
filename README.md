@@ -87,13 +87,13 @@ No. The detector runs on your computer, and Gavia never makes a network connecti
 <details>
 <summary><b>How accurate is it?</b></summary>
 
-The current model, `loon_v1`, is a YOLO11s detector trained on the `loonnet_v1` dataset of common loons. On that dataset's validation split (26 photos, 33 labelled loons) it scores:
+The current model, Loonet 1.0 (`loon_v1`), is a YOLO11s detector trained on the `loonnet_v1` dataset of common loons. On that dataset's validation split (26 photos, 33 labelled loons) it scores:
 
 | Precision | Recall | AP@0.5 |
 | --- | --- | --- |
 | 0.906 | 0.879 | 0.891 |
 
-You can pick a different model in **Settings → Detection model**. To try a retrained one, put its `.onnx` and `.json` files in the models folder shown there.
+To try a retrained model, put its `.onnx` and `.json` files in the `models` folder inside the storage location. A choice of model then appears in **Settings → Detection model**.
 
 It's an early model trained on a small dataset. Use its confidence scores as a starting point for review, not as the answer. It's trained on common loons only.
 
@@ -106,7 +106,7 @@ Only on your computer:
 
 | System | Folder |
 | --- | --- |
-| macOS | `~/Library/Application Support/Gavia` |
+| macOS | `~/Library/Gavia` |
 | Windows | `%LOCALAPPDATA%\Gavia` |
 | Linux | `~/.local/share/gavia` |
 
@@ -146,11 +146,16 @@ Please [open an issue](https://github.com/nikhil-kunapareddy/gavia/issues/new/ch
 
 ## What's next
 
-- **Signed installers** for macOS and Windows, so installing takes no extra steps.
-- **Batch checking:** a whole folder of photos at once, with a summary you can export.
-- **More species and life stages,** as labelled data allows.
+Gavia is growing from one task into a set of tools for loon habitat work. The required features are:
 
-The **[roadmap](ROADMAP.md)** has the rest.
+1. **Common Loon detection** (available now)
+2. **Common Loon counting** (per-photo counts now; survey totals and CSV export next)
+3. **Acoustic Common Loon call classifier**
+4. **Shoreline/wetland change detection**
+5. **Underwater habitat structure classifier**
+6. **Invasive vegetation classifier**
+
+The **[roadmap](ROADMAP.md)** has the status of each and what it needs, plus signed installers and the rest.
 
 ## Help build Gavia
 
