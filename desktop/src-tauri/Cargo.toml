@@ -1,0 +1,73 @@
+[package]
+name = "gavia"
+version = "0.1.0"
+description = "Gavia — loon detection for the field"
+authors = ["Humanitarians AI"]
+# Inherited from the model, which descends from Ultralytics YOLO11.
+license = "AGPL-3.0-only"
+repository = "https://github.com/nikhil-kunapareddy/gavia"
+edition = "2024"
+rust-version = "1.88"
+
+[lib]
+name = "gavia_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "gavia"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = [] }
+tauri-plugin-log = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+# Inference. ort downloads a prebuilt ONNX Runtime at build time and links it
+# statically; there is no Intel Mac build, which is why macOS ships for Apple
+# Silicon only.
+ort = { version = "=2.0.0-rc.13" }
+
+# Decoding. jpeg-decoder is used directly for JPEG because it can decode at
+# 1/2, 1/4 or 1/8 scale inside the IDCT — the same trick as Pillow's draft().
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+jpeg-decoder = { version = "0.3", default-features = false }
+kamadak-exif = "0.6"
+# Pillow-compatible convolution resampling, so the model sees the same pixels
+# the Python pipeline fed it.
+fast_image_resize = "6"
+# Lossy WebP for thumbnails; the image crate only encodes lossless.
+webp = { version = "0.3", default-features = false }
+
+rusqlite = { version = "0.40", features = ["bundled"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unwrap_in_result = "warn"
+
+# Dependencies build without debug info: a debug build of Tauri plus ONNX
+# Runtime is several GB otherwise, and nobody steps through them.
+[profile.dev.package."*"]
+debug = false

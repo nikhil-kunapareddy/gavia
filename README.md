@@ -1,432 +1,183 @@
+<div align="center">
+
+<img src=".github/banner.png" width="100%" alt="A common loon on a misty northern lake at dawn">
+
 # Gavia
+
+**Find loons in field photographs. Free, open source, and 100% on your computer.**
 
 *A Product of Humanitarians AI*
 
-A computer-vision tool that finds loons in photographs, built to support loon
-research and conservation work in the field.
+[![Download for macOS](https://img.shields.io/badge/macOS-Download-111111?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/nikhil-kunapareddy/gavia/releases/latest)
+[![Download for Windows](https://img.shields.io/badge/Windows-Download-111111?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/nikhil-kunapareddy/gavia/releases/latest)
+[![Download for Linux](https://img.shields.io/badge/Linux-Download-111111?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/nikhil-kunapareddy/gavia/releases/latest)
 
-Upload a photo and the app highlights each loon it finds with a bounding box and
-a confidence score. Results you choose to keep are saved to a local database and
-can be reopened later. It assists expert judgment rather than replacing it —
-results are meant to be reviewed.
+[![Build](https://img.shields.io/github/actions/workflow/status/nikhil-kunapareddy/gavia/desktop.yml?branch=main&style=flat-square&color=111111&label=build)](https://github.com/nikhil-kunapareddy/gavia/actions/workflows/desktop.yml)
+[![Downloads](https://img.shields.io/github/downloads/nikhil-kunapareddy/gavia/total?style=flat-square&color=111111)](https://github.com/nikhil-kunapareddy/gavia/releases)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-111111?style=flat-square)](LICENSE)
 
-React 18 + TypeScript (Vite, Tailwind) on the frontend, FastAPI (Python 3.11) on
-the backend, with a YOLO11s detector running locally through ONNX Runtime.
-Everything runs on your machine; no image is ever sent anywhere.
+</div>
 
----
+## What is Gavia?
 
-## Running it locally
+Gavia is a desktop app for loon research and conservation work. Open a photo, and Gavia draws a box around every loon it finds, with a confidence score for each. Keep the results worth keeping and come back to them later.
 
-You need **Python 3.11** and **Node 18+**. Nothing else — the model ships with
-the repo.
+It is built to support expert judgment, not to replace it. Every result is meant to be reviewed by a person who knows loons.
 
-The app is two processes. Open two terminals and leave both running.
-
-### Terminal 1 — the backend
-
-```bash
-cd /path/to/gavia
-
-python3.11 -m venv gavia-venv          # first time only
-source gavia-venv/bin/activate
-pip install -r backend/requirements.txt
-
-cd backend
-uvicorn app.main:app --reload --port 8000
-```
-
-You should see, once the model has loaded and warmed up (about half a second):
-
-```json
-{"level": "INFO", "message": "model ready", "model": "loon_v1", "provider": "CPUExecutionProvider"}
-{"level": "INFO", "message": "Uvicorn running on http://127.0.0.1:8000"}
-```
-
-> **Run uvicorn from inside `backend/`.** Settings load `.env` relative to the
-> working directory, so starting from the repo root silently ignores
-> `backend/.env`.
-
-### Terminal 2 — the frontend
-
-```bash
-cd /path/to/gavia/frontend
-npm install                            # first time only
-npm run dev
-```
-
-Open **http://localhost:5173**. Vite proxies `/api` to port 8000, so there is
-no CORS to configure and nothing else to set up.
-
-### Check it works
-
-Upload any photo and press **Check for loons**. Or from a third terminal:
-
-```bash
-curl -s localhost:8000/api/health
-curl -s localhost:8000/api/model | python3 -m json.tool
-curl -s -X POST localhost:8000/api/detect -F "image=@/path/to/photo.jpg"
-```
-
-Interactive API docs are at **http://localhost:8000/docs**.
-
-### If something is wrong
-
-| Symptom | Cause |
-| --- | --- |
-| `Could not reach the detection service` in the UI | The backend is not running, or not on port 8000. |
-| `/api/health` says `"degraded"` | The process is up but the model failed to load — check the startup log. |
-| `Port 5173 is already in use` | Another Vite server is running. `npm run dev -- --port 5174`. |
-| `ModuleNotFoundError: No module named 'app'` | uvicorn was started from the repo root instead of `backend/`. |
-| Settings in `.env` seem ignored | Same cause as above. |
-
----
-
-## Desktop app
-
-The packaged app is a [Tauri](https://tauri.app) shell around the same two
-halves you run in development. The target machine needs no Python and no
-`npm` — the backend is frozen by PyInstaller and travels inside the bundle,
-model included.
-
-### Build and install
-
-```bash
-cd frontend
-npm run tauri:build
-```
-
-That freezes the backend, builds the frontend, compiles the shell, and packages
-the result:
-
-```
-src-tauri/target/release/bundle/macos/Gavia.app               176 MB
-src-tauri/target/release/bundle/dmg/Gavia_0.1.0_aarch64.dmg    84 MB
-```
-
-Open the `.dmg` and drag `Gavia.app` into Applications. Gatekeeper does not
-object to a bundle built on the machine that runs it — a locally produced app
-carries no quarantine flag. Copy the `.dmg` to a second machine and it will
-object: the bundle is ad-hoc signed, not signed with a Developer ID, and
-notarisation is a separate step this repo does not do yet.
-
-### The bundle must be properly signed, or file dialogs abort the app
-
-`bundle.macOS.signingIdentity` is set to `-`, which ad-hoc signs the whole
-bundle. This is not cosmetic. Without it the app ships with only the linker's
-signature on the main executable: no resource seal, `Info.plist` unbound, and
-`codesign --verify` failing outright.
-
-Such a bundle launches and runs perfectly — until something asks AppKit for a
-file dialog. The open/save panel is hosted out of process, and that service
-refuses to start for a bundle whose signature does not check out, so
-`+[NSOpenPanel openPanel]` returns nil. wry does not guard against nil there,
-so the Rust binding panics and the process aborts. The symptom is the whole app
-vanishing the moment you click **Choose a photo** — with no error, because the
-part that would report one is the part that died.
-
-`scripts/make-dmg.sh` runs `codesign --verify --deep --strict` before
-packaging, so a bundle in that state fails the build instead of reaching a
-user.
-
-Hardened runtime is deliberately off. It turns on library validation, which
-rejects the unsigned dylibs PyInstaller puts in the sidecar, and it buys
-nothing until there is a Developer ID and notarisation to go with it.
-
-### Why the `.dmg` is not built by Tauri
-
-`bundle.targets` is `["app"]`, and `scripts/make-dmg.sh` makes the disk image.
-Tauri's own `dmg` target mounts a scratch volume, drives Finder with AppleScript
-to lay out the window, then unmounts — and on a bundle this size that unmount
-races Spotlight indexing the freshly copied app:
-
-```
-hdiutil: couldn't unmount "disk5" - Resource busy
-```
-
-It fails perhaps half the time, and a failed run leaves the scratch volume
-mounted, which then breaks the *next* run too. `hdiutil create` builds the image
-straight from a directory and never mounts it, so there is nothing to race. The
-cost is the decorated background window; the `Applications` symlink in the image
-is what that window was for.
-
-Most of the 176 MB is the Python runtime and ONNX Runtime (~120 MB) plus the
-model (36 MB). Nothing in it is downloaded at run time; the app is offline in
-the same sense the backend is.
-
-### One origin, one process
-
-The sidecar serves **both** halves — the API under `/api` and the built
-frontend under `/` — and the window is pointed at it:
-
-```
-Gavia.app
-  └─ gavia (Tauri shell)
-       ├─ spawns  Resources/gavia-backend/gavia-backend  --port 0
-       │            serving  /api  and  /  (Resources/web)
-       └─ window  ──▶  http://127.0.0.1:<port>
-```
-
-That is why `frontend/src/services/api.ts` can use plain relative URLs with no
-base URL to configure: in the packaged app they resolve to the same process
-that served the page, exactly as they resolve through Vite's proxy in
-development. Serving the frontend over `tauri://` instead would have meant an
-absolute API URL, a CORS exception, and two ways for the two halves to disagree.
-
-Startup is a handshake rather than a sleep:
-
-1. The shell spawns the sidecar with `--port 0`.
-2. The sidecar binds a free port itself and prints `GAVIA_PORT=<n>` before
-   loading the model. It binds *first* and passes the live socket to uvicorn,
-   so there is no window in which another process can take the port.
-3. The shell reads that line, polls `/api/health` until it answers, and only
-   then opens the window.
-
-The shell also mints a UUID per launch, passes it to the sidecar as
-`AUTH_TOKEN`, and injects it into the webview as `window.__GAVIA_TOKEN__`
-before any page script runs. Loopback keeps the backend off the network but not
-away from other processes on the machine; the token is what makes it yours. It
-never travels over the wire — anything that could read it from a response could
-have made the request itself.
-
-Quitting the app kills the sidecar. It is an ordinary child process, and
-nothing else would reap it.
-
-### Working on the shell
-
-```bash
-cd frontend && npm run tauri:dev
-```
-
-A debug build talks to Vite on :5173 and expects you to run uvicorn yourself,
-so the usual edit-and-reload loop is unchanged and UI work never waits on
-PyInstaller. To exercise the packaged path instead:
-
-```bash
-npm run build:sidecar          # ~2 min; needs requirements-build.txt
-GAVIA_SIDECAR=1 npm run tauri:dev
-```
-
-If a launch fails before the window appears, the shell's log is at
-`~/Library/Logs/ai.humanitarians.gavia/Gavia.log`.
-
----
-
-## Testing
-
-Three levels. All of them pass on a clean checkout.
-
-| Suite | Count | Command | Needs |
-| --- | --- | --- | --- |
-| Backend | 159 | `pytest` | Python venv |
-| Frontend unit | 126 | `npm test` | npm install |
-| End-to-end | 15 | `npm run test:e2e` | + Playwright browser |
-
-### Backend
-
-```bash
-source gavia-venv/bin/activate
-cd backend
-
-pytest                        # everything, ~21s
-pytest -m "not slow"          # skip the ones that load the model, ~6s
-pytest tests/test_api.py      # one file
-pytest -k "tiling"            # one topic
-pytest -m workflow            # the end-to-end journeys
-```
-
-Tests marked `slow` load the real 36 MB ONNX model. They are the only ones that
-would catch a corrupt model file, a bad export, or preprocessing that has
-drifted far enough to stop finding loons — so run the full suite before
-shipping, and `-m "not slow"` while iterating.
-
-- `test_geometry.py` — letterboxing, tiling, NMS and coordinate maths against
-  hand-computed values.
-- `test_loader.py` — real formats and real failures: MPO, EXIF rotation,
-  decompression bombs, truncated files, draft decoding.
-- `test_storage.py` — schema migrations, CRUD, and keeping the database and the
-  image files in step.
-- `test_config.py` — settings, per-platform data directories, the error
-  envelope, JSON logging.
-- `test_api.py` — the HTTP contract the frontend depends on.
-- `test_model_integration.py` — the real model, including thread safety.
-- `test_workflow.py` — complete journeys through the real stack.
-
-### Frontend
-
-```bash
-cd frontend
-
-npm test                      # unit and component tests
-npm run test:watch
-npm run test:coverage         # currently 99% of statements
-npm test -- src/services      # one directory
-npm test -- -t 'saving'       # one case
-```
-
-`App.test.tsx` mocks the service layer; `App.workflow.test.tsx` mocks only
-`fetch`, so the real `api.ts` and service modules run against responses shaped
-exactly like the backend's. That second file is what catches the app and the
-API drifting apart.
-
-### End-to-end
-
-A real Chromium browser driving the real app against the real backend and the
-real model. Nothing is stubbed.
-
-```bash
-cd frontend
-npx playwright install chromium    # first time only, ~95 MB
-npm run test:e2e
-npm run test:e2e:ui                # step through it visually
-```
-
-Playwright starts both servers itself, on ports 5179 and 8111 so it cannot
-collide with a dev server you already have open (override with
-`E2E_FRONTEND_PORT` / `E2E_BACKEND_PORT`). The backend gets a throwaway data
-directory each run, so your saved history is never touched.
-
-Tests that need an actual loon photograph skip themselves if the `loonnet_v1`
-dataset is not on the machine; the rest run anywhere.
-
-### Everything at once
-
-```bash
-cd frontend && npm run test:all    # typecheck, lint, unit, e2e
-cd backend  && pytest
-```
-
-### Model accuracy
-
-Neither suite above measures accuracy — that needs labelled data and lives in
-`backend/scripts/`. See `backend/scripts/README.md`.
-
----
-
-## Status
-
-Detection works end to end. `backend/models/loon_v1.onnx` is a single-class
-common loon detector trained on `loonnet_v1`, scoring **P 0.906 / R 0.879 /
-AP@0.5 0.892** on its validation split — slightly ahead of the Ultralytics
-runtime it was exported from.
-
-It is an early model on a small dataset. Treat its confidence scores as a
-starting point for review, not an answer.
+Gavia does all its work on your own computer. It **works without internet**, it's **free**, and **your photos never leave your machine**.
 
 ## How it works
 
-```
-photo ─▶ stream to temp file ─▶ decode (EXIF, draft-scaled)
-      ─▶ letterbox to 640 ─▶ ONNX Runtime ─▶ NMS ─▶ percentages ─▶ JSON
-```
+1. **Install Gavia** and open it. The detection model comes with the app, so there's nothing else to download.
+2. **Choose a photo.** JPEG, PNG and WebP all work, including the MPO files many cameras produce, up to 20 MB.
+3. **Review and keep.** Check the boxes, give a thumbs up or down, and save the result to your history. You can also download a copy of the photo with the boxes drawn on it.
 
-Boxes are returned as percentages of the image rather than pixels, so the
-overlay is independent of display size.
+## Why people use it
 
-Detection does not save anything. The reviewer looks at the result and decides;
-`POST /api/results` commits it, writing the original image unmodified plus a
-thumbnail, with metadata in SQLite.
+|  | Gavia | Uploading to a cloud service |
+| --- | --- | --- |
+| **Your photos** | Stay on your computer | Sent to someone else's server |
+| **In the field** | Works offline | Needs a connection |
+| **Cost** | Free | Often per image or per month |
+| **Account** | Not needed | Usually required |
 
-| | |
+- **💻 Runs on an ordinary laptop.** No GPU, no server, a 43 MB download.
+- **🎯 Measured.** On the `loonnet_v1` validation photos, Gavia finds 88% of labelled loons, and 91% of the boxes it draws are real loons (details below).
+- **🗂️ Keeps a record.** The original photo is saved byte-for-byte next to the boxes, exactly as the reviewer saw them.
+- **🧭 Honest about uncertainty.** Every box shows a confidence score, so you can see which ones deserve a closer look.
+
+## Download
+
+**[Go to the downloads page](https://github.com/nikhil-kunapareddy/gavia/releases/latest)** and click the file for your computer:
+
+| Your computer | Download this file |
 | --- | --- |
-| `POST /api/detect` | Run the detector. Returns detections; persists nothing. |
-| `POST /api/results` | Keep a result: image, thumbnail, and detections. |
-| `GET /api/results` | Saved checks, newest first. |
-| `GET /api/results/{id}` | One saved check. |
-| `GET /api/results/{id}/image` | The original bytes. |
-| `GET /api/results/{id}/thumb` | ~320px WebP for the history grid. |
-| `DELETE /api/results/{id}` | Remove one, files included. |
-| `DELETE /api/results` | Clear the history. |
-| `GET /api/health` | Liveness. Answers even with no model loaded. |
-| `GET /api/model` | What is actually loaded, read from the model's metadata. |
+| **Mac** with Apple Silicon (M1 or newer) | the file ending in `.dmg` |
+| **Windows** 10 or 11 | the file ending in `-setup.exe` |
+| **Linux:** Ubuntu, Debian, Mint or Pop!_OS | the file ending in `.deb` |
+| **Linux:** Fedora, RHEL or openSUSE | the file ending in `.rpm` |
+| **Linux:** any other distribution | the file ending in `.AppImage` |
 
-Errors share one shape, so the UI can branch on `code` rather than parse prose:
+### Installing
 
-```json
-{ "error": { "code": "IMAGE_TOO_LARGE", "message": "…", "requestId": "4cf9e88e401d" } }
-```
+**Mac**
+1. Open the `.dmg` file and drag Gavia into your Applications folder.
+2. The first time, right-click Gavia in Applications and choose **Open**, then **Open** again. macOS asks because the app isn't signed with an Apple developer certificate yet. You only need to do this once.
 
-## Where data lives
+**Windows**
+1. Run the `-setup.exe` file.
+2. If a blue "Windows protected your PC" box appears, click **More info**, then **Run anyway**. You only need to do this once.
 
-Saved checks go to the platform's per-user data directory — on macOS
-`~/Library/Application Support/Gavia`:
+**Linux**
+- **`.deb`:** double-click it to install with your software center, or run `sudo apt install ./Gavia_*.deb`.
+- **`.rpm`:** double-click it, or run `sudo dnf install ./Gavia-*.rpm`.
+- **`.AppImage`:** make it runnable with `chmod +x Gavia_*.AppImage`, then double-click it.
 
-```
-gavia.db          results and detections
-images/<id>.jpg   the original, byte-for-byte
-thumbs/<id>.webp  ~11 KB grid thumbnail
-```
+The extra steps on Mac and Windows are there because the app isn't signed by Apple or Microsoft yet.
 
-Override with `DATA_DIR`. History used to live in `localStorage` with images
-inlined as base64, which silently dropped the oldest saved checks once the
-browser's ~5 MB quota filled up.
+## Questions
 
-## Performance
+<details>
+<summary><b>Does anything get sent over the internet?</b></summary>
 
-Measured on an M2 Pro, single-pass at 640:
+No. The detector runs on your computer, and Gavia never makes a network connection. There's no account, no analytics and no update check.
 
-| | |
+</details>
+
+<details>
+<summary><b>How accurate is it?</b></summary>
+
+The current model, Loonet 1.0 (`loon_v1`), is a YOLO11s detector trained on the `loonnet_v1` dataset of common loons. On that dataset's validation split (26 photos, 33 labelled loons) it scores:
+
+| Precision | Recall | AP@0.5 |
+| --- | --- | --- |
+| 0.906 | 0.879 | 0.891 |
+
+To try a retrained model, put its `.onnx` and `.json` files in the `models` folder inside the storage location. A choice of model then appears in **Settings → Detection model**.
+
+It's an early model trained on a small dataset. Use its confidence scores as a starting point for review, not as the answer. It's trained on common loons only.
+
+</details>
+
+<details>
+<summary><b>Where are my saved checks kept?</b></summary>
+
+Only on your computer:
+
+| System | Folder |
 | --- | --- |
-| Cold start (load + warmup) | 0.37 s |
-| Inference, 3–20 MP photo | 120–210 ms |
-| Steady memory | ~370 MB |
-| Model file | 36 MB |
+| macOS | `~/Library/Gavia` |
+| Windows | `%LOCALAPPDATA%\Gavia` |
+| Linux | `~/.local/share/gavia` |
 
-Large JPEGs are decoded at reduced scale directly by libjpeg rather than being
-decoded in full and then shrunk, which is most of the memory saving on the
-common path.
+Inside it, `gavia.db` holds the results, `images/` holds your original photos exactly as you opened them, and `thumbs/` holds small previews. You can delete a single check or clear everything from the History screen.
 
-## Tiling
+To keep them somewhere else, such as an external drive, open **Settings → Storage location → Change…**. Gavia moves your history to the new folder.
 
-Off by default, and that is a measured decision rather than a cautious one.
-Tiling exists for small-object imagery — a 40px bird in a 6000px drone frame
-survives a 640px tile and does not survive a whole-image resize. But on the
-current dataset 64% of labelled loons are *larger* than a 640px tile (median
-longest side 1077px, 41% of the frame), so tiles see fragments of a bird rather
-than a bird:
+</details>
 
-| pipeline | P | R | AP@0.5 |
-| --- | --- | --- | --- |
-| single pass | 0.906 | 0.879 | 0.892 |
-| tiled | 0.074 | 0.364 | 0.231 |
-| tiled + full pass | 0.154 | 0.849 | 0.629 |
+<details>
+<summary><b>Does it work on Intel Macs?</b></summary>
 
-Enable it with `TILING_ENABLED=true` or per request with `?tiling=true` when
-working with genuine top-down drone frames, and confirm it helps with
-`backend/scripts/evaluate.py`.
+Not yet. The engine that runs the model, ONNX Runtime, doesn't publish a build for Intel Macs, so the Mac download is for Apple Silicon only. If you need an Intel build, please [open an issue](https://github.com/nikhil-kunapareddy/gavia/issues).
 
-## Configuration
+</details>
 
-Backend only, via `backend/.env` — copy `backend/.env.example` to start. It
-documents every setting; the ones you are most likely to touch:
+<details>
+<summary><b>What about drone photos where birds are tiny?</b></summary>
 
-| Variable | Default |
+Gavia can split a large photo into overlapping tiles so small birds stay visible to the model. It's off by default because it hurts accuracy on typical photos, where loons are large in the frame: on `loonnet_v1`, precision drops from 0.906 to 0.074 with tiling on. To try it on top-down drone imagery, start Gavia with the environment variable `GAVIA_TILING=true`, and measure the result first (see [CONTRIBUTING.md](CONTRIBUTING.md#measure-accuracy)).
+
+</details>
+
+<details>
+<summary><b>I used an earlier version. Do I lose my history?</b></summary>
+
+No. Gavia keeps saved checks in the same folder and format it always has, so your history is there when you open the new version.
+
+</details>
+
+<details>
+<summary><b>Something isn't working</b></summary>
+
+Please [open an issue](https://github.com/nikhil-kunapareddy/gavia/issues/new/choose) describing what happened and which computer you're on. Windows and Linux support is new, so reports from those systems help a lot.
+
+</details>
+
+## What's next
+
+Gavia is growing from one task into a set of tools for loon habitat work. The required features are:
+
+1. **Common Loon detection** (available now)
+2. **Common Loon counting** (per-photo counts now; survey totals and CSV export next)
+3. **Acoustic Common Loon call classifier**
+4. **Shoreline/wetland change detection**
+5. **Underwater habitat structure classifier**
+6. **Invasive vegetation classifier**
+
+The **[roadmap](ROADMAP.md)** has the status of each and what it needs, plus signed installers and the rest.
+
+## Help build Gavia
+
+Everyone is welcome, and you don't have to write code. Bug reports, labelled photos, ideas and design feedback all help.
+
+| If you know… | You could work on… |
 | --- | --- |
-| `DEBUG` | `false` |
-| `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` |
-| `TILING_ENABLED` | `false` |
-| `DATA_DIR` | platform per-user data directory |
-| `MAX_UPLOAD_BYTES` | `20971520` (20 MB) |
-| `AUTH_TOKEN` | empty (open) |
-| `STATIC_DIR` | empty (Vite serves the frontend) |
+| **React and TypeScript** | The screens: checking, reviewing, history |
+| **Rust**, or want to learn it | Image decoding, the detector, storage, and Windows and Linux support |
+| **Computer vision** | Training and evaluating better models |
+| **Loons** | Labelling photos and telling us where the model gets it wrong |
 
-`AUTH_TOKEN` gates every endpoint except `/api/health` behind an
-`X-Gavia-Token` header. Binding to 127.0.0.1 keeps the service off the network
-but not away from other processes on the machine; the packaged desktop shell
-generates a token per launch so only the app it started can drive the backend.
-
-`STATIC_DIR` is what the packaged app sets to serve the frontend from the same
-process as the API — see [Desktop app](#desktop-app).
-
-## Model
-
-See `backend/scripts/README.md` for evaluating, re-exporting, and the parity
-check. `backend/models/loon_v1.json` records provenance, thresholds, metrics
-and a checksum, and `GET /api/model` reports it — so what the API claims cannot
-drift from the weights in use.
+Start with the **[contributing guide](CONTRIBUTING.md)**. It explains how to set up your computer, run and test Gavia, and send your first change.
 
 ## Licence
 
-AGPL-3.0. The detector is derived from Ultralytics YOLO11, which is AGPL-3.0,
-and that obligation carries to anything distributed with these weights. See
-[LICENSE](LICENSE).
+AGPL-3.0. The detector is derived from Ultralytics YOLO11, which is AGPL-3.0, and that obligation carries to anything distributed with these weights. See [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**If Gavia helps your fieldwork, a star helps other researchers find it.**
+
+</div>

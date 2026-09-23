@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contributing
+    url: https://github.com/nikhil-kunapareddy/gavia/blob/main/CONTRIBUTING.md
+    about: How to set up your machine, run Gavia and send a change.
+  - name: Security issue
+    url: https://github.com/nikhil-kunapareddy/gavia/security/advisories/new
+    about: Report a vulnerability privately rather than in a public issue.

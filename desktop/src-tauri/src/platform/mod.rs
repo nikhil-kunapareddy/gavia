@@ -1,0 +1,74 @@
+//! Operating-system specific code. Each OS has its own folder and exposes the
+//! same items, so the rest of the app never needs a `cfg` check:
+//!
+//! - `default_data_dir()`: where history lives. On Windows and Linux these are
+//!   the exact paths the Python backend used, so an existing history opens
+//!   unchanged. macOS uses `~/Library/Gavia`, a path without spaces.
+//! - `legacy_data_dir()`: an earlier default, if the platform had one. A
+//!   history found there is moved to `default_data_dir()` at startup
+//!   ([`crate::storage::adopt_legacy_library`]).
+//! - `ASSET_ORIGIN`: how the webview spells a `gavia://` URL. Windows' WebView2
+//!   cannot load custom schemes directly and Tauri maps them onto
+//!   `http://<scheme>.localhost` there.
+//!
+//! Adding an item means adding it to all three folders.
+
+use std::path::PathBuf;
+
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+pub use linux::*;
+
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+pub use macos::*;
+
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+pub use windows::*;
+
+/// Overrides the data directory. Used by tests and by anyone who wants their
+/// history on another disk.
+pub const DATA_DIR_ENV: &str = "GAVIA_DATA_DIR";
+
+/// The data directory [`DATA_DIR_ENV`] asks for, if it is set. It overrides
+/// the location chosen in Settings.
+pub fn env_data_dir() -> Option<PathBuf> {
+    std::env::var_os(DATA_DIR_ENV)
+        .filter(|d| !d.is_empty())
+        .map(PathBuf::from)
+}
+
+fn home() -> PathBuf {
+    #[allow(deprecated)] // std::env::home_dir is correct again since Rust 1.85.
+    std::env::home_dir().unwrap_or_else(|| PathBuf::from("."))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_data_dir_is_named_for_the_app() {
+        let dir = default_data_dir();
+        let name = dir.file_name().unwrap().to_string_lossy().to_lowercase();
+        assert_eq!(name, "gavia");
+    }
+
+    #[test]
+    fn legacy_data_dir_is_not_the_default() {
+        assert_ne!(
+            legacy_data_dir().as_deref(),
+            Some(default_data_dir().as_path())
+        );
+    }
+
+    #[test]
+    fn asset_origin_has_no_trailing_slash() {
+        assert!(!ASSET_ORIGIN.ends_with('/'));
+        assert!(ASSET_ORIGIN.contains("gavia"));
+    }
+}

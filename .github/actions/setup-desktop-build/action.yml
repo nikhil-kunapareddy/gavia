@@ -1,0 +1,35 @@
+name: Set up a desktop build
+description: System libraries, Node and Rust for building Gavia on any of the three systems.
+
+runs:
+  using: composite
+  steps:
+    - name: Linux system libraries
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+          libssl-dev libxdo-dev patchelf file pkg-config build-essential
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: desktop/package-lock.json
+
+    - name: Install frontend dependencies
+      shell: bash
+      working-directory: desktop
+      run: npm ci
+
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: desktop/src-tauri -> target
+        # Keeps the lint/test and installer caches apart; they build different profiles.
+        key: ${{ github.job }}

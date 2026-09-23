@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Gavia",
+  "version": "0.1.0",
+  "identifier": "ai.humanitarians.gavia",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Gavia",
+        "url": "index.html",
+        "width": 1280,
+        "height": 880,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "img-src": "'self' blob: data: gavia: http://gavia.localhost",
+        "style-src": "'self' 'unsafe-inline'",
+        "connect-src": "ipc: http://ipc.localhost gavia: http://gavia.localhost"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "resources/models/": "models/"
+    },
+    "category": "Utility",
+    "shortDescription": "Find loons in field photographs, offline.",
+    "longDescription": "Gavia finds loons in field photographs: open an image, get bounding boxes with confidence scores, keep the ones worth keeping. Everything runs on your computer.",
+    "publisher": "Humanitarians AI",
+    "copyright": "AGPL-3.0-only",
+    "license": "AGPL-3.0-only"
+  }
+}
