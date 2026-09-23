@@ -10,3 +10,7 @@ pub fn default_data_dir() -> PathBuf {
         _ => super::home().join(".local").join("share").join("gavia"),
     }
 }
+
+pub fn legacy_data_dir() -> Option<PathBuf> {
+    None
+}

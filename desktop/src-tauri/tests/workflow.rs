@@ -242,7 +242,7 @@ fn a_check_during_startup_waits_for_the_model() {
 fn model_info_reports_the_loaded_weights() {
     let dir = tempfile::tempdir().unwrap();
     let info = service(dir.path()).model_info().unwrap();
-    assert_eq!(info.name, "loon_v1");
+    assert_eq!(info.name, "Loonet 1.0");
     assert_eq!(info.classes, vec!["common loon"]);
     assert_eq!(info.provider, "CPUExecutionProvider");
     assert!(!info.tiling_enabled);

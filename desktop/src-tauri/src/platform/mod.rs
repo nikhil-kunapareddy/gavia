@@ -1,8 +1,12 @@
 //! Operating-system specific code. Each OS has its own folder and exposes the
 //! same items, so the rest of the app never needs a `cfg` check:
 //!
-//! - `default_data_dir()`: where history lives. These are the exact paths the
-//!   Python backend used, so an existing history opens unchanged.
+//! - `default_data_dir()`: where history lives. On Windows and Linux these are
+//!   the exact paths the Python backend used, so an existing history opens
+//!   unchanged. macOS uses `~/Library/Gavia`, a path without spaces.
+//! - `legacy_data_dir()`: an earlier default, if the platform had one. A
+//!   history found there is moved to `default_data_dir()` at startup
+//!   ([`crate::storage::adopt_legacy_library`]).
 //! - `ASSET_ORIGIN`: how the webview spells a `gavia://` URL. Windows' WebView2
 //!   cannot load custom schemes directly and Tauri maps them onto
 //!   `http://<scheme>.localhost` there.
@@ -52,6 +56,14 @@ mod tests {
         let dir = default_data_dir();
         let name = dir.file_name().unwrap().to_string_lossy().to_lowercase();
         assert_eq!(name, "gavia");
+    }
+
+    #[test]
+    fn legacy_data_dir_is_not_the_default() {
+        assert_ne!(
+            legacy_data_dir().as_deref(),
+            Some(default_data_dir().as_path())
+        );
     }
 
     #[test]

@@ -12,7 +12,7 @@ use image::{DynamicImage, ImageFormat};
 #[test]
 fn loads_with_the_shipped_metadata() {
     let detector = detector();
-    assert_eq!(detector.info().name, "loon_v1");
+    assert_eq!(detector.info().name, "Loonet 1.0");
     assert_eq!(detector.info().input_size, 640);
     assert!(!detector.tiling_enabled());
 }

@@ -157,10 +157,10 @@ The Settings screen covers the theme, storage location and model. These environm
 
 | | macOS | Windows | Linux |
 | --- | --- | --- | --- |
-| History | `~/Library/Application Support/Gavia` | `%LOCALAPPDATA%\Gavia` | `~/.local/share/gavia` |
+| History | `~/Library/Gavia` | `%LOCALAPPDATA%\Gavia` | `~/.local/share/gavia` |
 | Logs | `~/Library/Logs/ai.humanitarians.gavia` | `%LOCALAPPDATA%\ai.humanitarians.gavia\logs` | `~/.local/share/ai.humanitarians.gavia/logs` |
 
-These are the same history folders the earlier Python version of Gavia used, so upgrading keeps everyone's saved checks. You can move history elsewhere in **Settings**; the choice is saved in `settings.json` in the app's config folder (`~/Library/Application Support/ai.humanitarians.gavia` on macOS). The theme is kept in the webview's `localStorage`, so it applies before the first paint.
+On Windows and Linux these are the same history folders the earlier Python version of Gavia used. macOS used `~/Library/Application Support/Gavia` until the path lost its space; a history still there is moved to `~/Library/Gavia` the next time Gavia starts (`storage::adopt_legacy_library`), so upgrading keeps everyone's saved checks. You can move history elsewhere in **Settings**; the choice is saved in `settings.json` in the app's config folder (`~/Library/Application Support/ai.humanitarians.gavia` on macOS). The theme is kept in the webview's `localStorage`, so it applies before the first paint.
 
 ## Test your changes
 
@@ -209,7 +209,7 @@ The split is a YOLO-format text file of image paths, with labels in a sibling `l
 
 ### Updating the model
 
-To try a model without rebuilding, put `name.onnx` and `name.json` in the `models/` folder inside the storage location. It appears in **Settings → Detection model**. To ship one with the app, it's the same two-file drop-in into `resources/models/`: Thresholds, class names and display labels are all read from the JSON, so no code changes. Export from Ultralytics with static shapes:
+To try a model without rebuilding, put `name.onnx` and `name.json` in the `models/` folder inside the storage location. Once there is more than one, **Settings → Detection model** offers a choice. To ship one with the app, it's the same two-file drop-in into `resources/models/`: Thresholds, class names and display labels are all read from the JSON, so no code changes. Export from Ultralytics with static shapes:
 
 ```python
 from ultralytics import YOLO

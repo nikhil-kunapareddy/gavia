@@ -1,5 +1,5 @@
 {
-  "name": "loon_v1",
+  "name": "Loonet 1.0",
   "description": "Single-class common loon detector for field and drone photographs.",
   "architecture": "YOLO11s",
   "task": "detect",

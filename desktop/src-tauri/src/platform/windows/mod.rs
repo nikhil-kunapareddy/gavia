@@ -11,3 +11,7 @@ pub fn default_data_dir() -> PathBuf {
         .map(|base| PathBuf::from(base).join("Gavia"))
         .unwrap_or_else(|| super::home().join("Gavia"))
 }
+
+pub fn legacy_data_dir() -> Option<PathBuf> {
+    None
+}

@@ -75,6 +75,45 @@ pub fn resolve_destination(folder: &Path) -> Result<Destination, String> {
     ))
 }
 
+/// The folder to use as the default storage location, after moving a history
+/// left at `legacy` (an earlier default) to `default`, so that changing the
+/// default doesn't orphan anyone's history.
+///
+/// Nothing moves if `default` already has a history or `legacy` has none. The
+/// move is a rename, so it is all or nothing; if it fails the history stays
+/// put and `legacy` is returned, so it is still the history that opens.
+pub fn adopt_legacy_library(default: &Path, legacy: Option<&Path>) -> PathBuf {
+    let is_library = |dir: &Path| dir.join("gavia.db").is_file();
+    let Some(legacy) = legacy else {
+        return default.to_path_buf();
+    };
+    if is_library(default) || !is_library(legacy) {
+        return default.to_path_buf();
+    }
+    let moved = default
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|()| std::fs::rename(legacy, default));
+    match moved {
+        Ok(()) => {
+            log::info!(
+                "moved history from {} to {}",
+                legacy.display(),
+                default.display()
+            );
+            default.to_path_buf()
+        }
+        Err(e) => {
+            log::warn!(
+                "could not move history from {} to {}, so it stays where it is: {e}",
+                legacy.display(),
+                default.display()
+            );
+            legacy.to_path_buf()
+        }
+    }
+}
+
 /// Copy a history from `from` into the empty folder `to`.
 ///
 /// Copies rather than renames: if anything fails partway, the original is
@@ -206,5 +245,64 @@ mod tests {
         assert!(!from.path().join("gavia.db").exists());
         assert!(!from.path().join("images").exists());
         assert!(from.path().join("keep.txt").exists());
+    }
+
+    fn make_library(dir: &Path, db: &[u8]) {
+        std::fs::create_dir_all(dir.join("images")).unwrap();
+        std::fs::write(dir.join("gavia.db"), db).unwrap();
+        std::fs::write(dir.join("images/a.jpg"), b"img").unwrap();
+    }
+
+    #[test]
+    fn a_legacy_history_moves_to_the_default() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("Application Support/Gavia");
+        let default = root.path().join("Gavia");
+        make_library(&legacy, b"old");
+
+        assert_eq!(adopt_legacy_library(&default, Some(&legacy)), default);
+        assert_eq!(std::fs::read(default.join("gavia.db")).unwrap(), b"old");
+        assert_eq!(std::fs::read(default.join("images/a.jpg")).unwrap(), b"img");
+        assert!(!legacy.exists());
+    }
+
+    #[test]
+    fn nothing_moves_without_a_legacy_history() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("old");
+        let default = root.path().join("new");
+        std::fs::create_dir_all(&legacy).unwrap();
+
+        assert_eq!(adopt_legacy_library(&default, None), default);
+        assert_eq!(adopt_legacy_library(&default, Some(&legacy)), default);
+        assert!(!default.exists());
+    }
+
+    #[test]
+    fn a_history_at_the_default_wins() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("old");
+        let default = root.path().join("new");
+        make_library(&legacy, b"old");
+        make_library(&default, b"new");
+
+        assert_eq!(adopt_legacy_library(&default, Some(&legacy)), default);
+        assert_eq!(std::fs::read(default.join("gavia.db")).unwrap(), b"new");
+        assert_eq!(std::fs::read(legacy.join("gavia.db")).unwrap(), b"old");
+    }
+
+    #[test]
+    fn a_failed_move_keeps_using_the_legacy_history() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("old");
+        let default = root.path().join("new");
+        make_library(&legacy, b"old");
+        // Something that isn't a history is in the way.
+        std::fs::create_dir_all(&default).unwrap();
+        std::fs::write(default.join("notes.txt"), b"mine").unwrap();
+
+        assert_eq!(adopt_legacy_library(&default, Some(&legacy)), legacy);
+        assert_eq!(std::fs::read(legacy.join("gavia.db")).unwrap(), b"old");
+        assert_eq!(std::fs::read(default.join("notes.txt")).unwrap(), b"mine");
     }
 }

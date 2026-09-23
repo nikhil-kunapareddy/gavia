@@ -62,7 +62,10 @@ pub fn run() {
                 bundled_models: app
                     .path()
                     .resolve(MODELS_RESOURCE, BaseDirectory::Resource)?,
-                default_data_dir: platform::default_data_dir(),
+                default_data_dir: storage::adopt_legacy_library(
+                    &platform::default_data_dir(),
+                    platform::legacy_data_dir().as_deref(),
+                ),
                 env_data_dir: platform::env_data_dir(),
             };
             let service = Arc::new(Service::open(library, Config::from_env())?);

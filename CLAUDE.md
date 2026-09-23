@@ -109,10 +109,14 @@ for genuine small-object drone imagery; `GAVIA_TILING=true` turns it on.
 `images/`, lossy WebP thumbnails (q72, `webp` crate) in `thumbs/`, metadata in
 `gavia.db`, one connection behind a mutex. Schema, directory names and the
 `created_at` format (`%Y-%m-%dT%H:%M:%S+00:00`) are exactly the Python
-backend's, and `platform::default_data_dir()` returns the Python paths
-(`~/Library/Application Support/Gavia`, `%LOCALAPPDATA%\Gavia`,
+backend's. `platform::default_data_dir()` returns `~/Library/Gavia` on macOS
+(no spaces) and the Python paths elsewhere (`%LOCALAPPDATA%\Gavia`,
 `~/.local/share/gavia` — lowercase on Linux), not Tauri's identifier-based
-`app_data_dir`. Changing any of them orphans existing users' history.
+`app_data_dir`. The old macOS default, `~/Library/Application Support/Gavia`,
+is `platform::legacy_data_dir()`; `storage::adopt_legacy_library` renames a
+history found there into the new default at startup, and keeps using the old
+folder if the rename fails. Changing a default without such a move orphans
+existing users' history.
 `user_version` versions the schema; migrations are forward-only.
 
 **Settings** (`settings.rs`, `models.rs`, the settings half of `service.rs`)
