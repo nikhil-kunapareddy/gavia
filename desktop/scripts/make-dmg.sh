@@ -10,8 +10,11 @@
 #     hdiutil: couldn't unmount "disk5" - Resource busy
 #
 # `hdiutil create` builds the image straight from a directory and never mounts
-# it, so there is no race to lose. The cost is the decorated background window;
-# the Applications symlink below is what that window was for.
+# it, so there is no race to lose. The window layout Finder would have written
+# is checked in instead: src-tauri/installer/dmg-DS_Store (made once by
+# dmg-layout.py, which says how to regenerate it) goes in as .DS_Store, next to
+# the background it names. It finds the background by path, so the volume
+# must stay named "Gavia".
 set -euo pipefail
 
 DESKTOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -59,6 +62,11 @@ trap 'rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/"
 # What the user drags onto. Standard install gesture, no Finder scripting.
 ln -s /Applications "$STAGE/Applications"
+# The window: a background at 1x and 2x in one TIFF, and the layout.
+INSTALLER="$DESKTOP/src-tauri/installer"
+tiffutil -cathidpicheck "$INSTALLER/dmg-background.png" "$INSTALLER/dmg-background@2x.png" \
+  -out "$STAGE/.background.tiff"
+cp "$INSTALLER/dmg-DS_Store" "$STAGE/.DS_Store"
 
 mkdir -p "$OUT_DIR"
 rm -f "$DMG"

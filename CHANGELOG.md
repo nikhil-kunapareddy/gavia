@@ -10,6 +10,7 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 - Contributing guide, code of conduct, security policy, roadmap, and issue and pull request templates.
 - A Settings page: light, dark or system theme, a movable storage location, and a choice of detection model once more than one is installed.
 - A Help page behind the **?** button in the header.
+- A loon app icon, replacing Tauri's placeholder, and artwork for the macOS disk image window and the Windows installer.
 
 ### Changed
 - The detection backend was rewritten in Rust and now runs inside the app. There's no Python sidecar, local server, port or auth token any more. The macOS download shrank from 84 MB to 43 MB.

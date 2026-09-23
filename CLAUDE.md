@@ -226,6 +226,11 @@ may bypass the approval in pull-request mode).
   Tauri's dmg target (which races Spotlight on unmount and fails with
   `Resource busy`). macOS `bundle.targets` is `["app"]`; Windows is NSIS
   (`currentUser`), Linux deb/rpm/AppImage, each in its `tauri.<os>.conf.json`.
+- The `.dmg` window layout is a checked-in Finder `.DS_Store`
+  (`src-tauri/installer/dmg-DS_Store`, made by `dmg-layout.py`), because
+  `hdiutil create` never mounts the image for Finder to lay out. It finds
+  `.background.tiff` by path, so the volume name must stay `Gavia`, and the
+  icon positions refer to `Gavia.app` and `Applications` by name.
 - Installers are unsigned (ad-hoc on macOS), so Gatekeeper and SmartScreen warn;
   the README documents the workaround.
 - Dependencies build without debug info (`[profile.dev.package."*"]`); a debug

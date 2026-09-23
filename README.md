@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/banner.png" width="100%" alt="A common loon on a misty northern lake at dawn">
+
 <img src="desktop/src-tauri/icons/128x128@2x.png" width="112" alt="Gavia icon">
 
 # Gavia

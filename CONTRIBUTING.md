@@ -141,6 +141,13 @@ npm run app:build    # the .app and .dmg, -setup.exe, or .deb/.rpm/.AppImage
 
 The installers land in `desktop/src-tauri/target/release/bundle/`.
 
+### Icons and installer artwork
+
+- **App icon.** The 1024px masters are in `desktop/assets/brand/`: `icon-macos.png` is inset to Apple's icon grid with a shadow, `icon.png` fills the square for Windows and Linux. To regenerate `src-tauri/icons/`, run `npx tauri icon assets/brand/icon.png`, then replace `icon.icns` with the one from `npx tauri icon assets/brand/icon-macos.png -o /tmp/mac`. Keep only the files already in `icons/`.
+- **Windows installer.** `src-tauri/installer/nsis-sidebar.bmp` (164×314) and `nsis-header.bmp` (150×57), both 24-bit BMP.
+- **macOS disk image.** `dmg-background.png` and `@2x` are 660×400 and 1320×800. `dmg-DS_Store` is the Finder layout that goes with them; `dmg-layout.py` says how to regenerate it after moving the icons.
+- **GitHub.** `.github/banner.png` tops the README; `.github/social-preview.png` is uploaded by hand under the repository's **Settings → Social preview**.
+
 ### Settings
 
 The Settings screen covers the theme, storage location and model. These environment variables are for benchmarking and for trying unusual imagery:
