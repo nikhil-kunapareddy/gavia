@@ -1,6 +1,6 @@
 [package]
 name = "gavia"
-version = "0.1.0"
+version = "0.2.0"
 description = "Gavia — loon detection for the field"
 authors = ["Humanitarians AI"]
 # Inherited from the model, which descends from Ultralytics YOLO11.
