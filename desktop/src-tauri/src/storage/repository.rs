@@ -238,6 +238,19 @@ impl Repository {
             .map(|n| n as u64)
     }
 
+    /// Fold the write-ahead log into `gavia.db`, so the file alone is a
+    /// complete copy of the history. Done before the library is moved.
+    pub fn checkpoint(&self) -> rusqlite::Result<()> {
+        self.db
+            .lock()
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+    }
+
+    /// The storage location: the folder holding `gavia.db`, `images/` and `thumbs/`.
+    pub fn root(&self) -> &std::path::Path {
+        self.images.root()
+    }
+
     pub fn image_path(&self, id: &str, extension: &str) -> PathBuf {
         self.images.image_path(id, extension)
     }

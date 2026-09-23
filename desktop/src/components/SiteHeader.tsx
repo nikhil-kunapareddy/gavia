@@ -1,4 +1,4 @@
-import { BookOpen, History, Menu, X } from 'lucide-react'
+import { History, Menu, Settings, X } from 'lucide-react'
 import type { Page } from '../types/navigation'
 
 interface SiteHeaderProps {
@@ -38,8 +38,8 @@ export function SiteHeader({
           <button className={navClass(page === 'results')} onClick={() => onNavigate('results')}>
             <History size={16} /> Previous checks
           </button>
-          <button className={navClass(page === 'about')} onClick={() => onNavigate('about')}>
-            <BookOpen size={16} /> About
+          <button className={navClass(page === 'settings')} onClick={() => onNavigate('settings')}>
+            <Settings size={16} /> Settings
           </button>
         </nav>
         <button

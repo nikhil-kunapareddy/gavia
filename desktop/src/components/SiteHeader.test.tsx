@@ -27,7 +27,7 @@ describe('navigation', () => {
   it.each([
     ['Check an image', 'check'],
     ['Previous checks', 'results'],
-    ['About', 'about'],
+    ['Settings', 'settings'],
   ])('navigates to %s', async (label, page) => {
     const user = userEvent.setup()
     renderHeader()
@@ -43,7 +43,7 @@ describe('navigation', () => {
 
     const nav = screen.getByRole('navigation')
     const current = within(nav).getByRole('button', { name: /Previous checks/ })
-    const other = within(nav).getByRole('button', { name: /About/ })
+    const other = within(nav).getByRole('button', { name: /Settings/ })
 
     expect(current.className).toContain('active')
     expect(other.className).not.toContain('active')
@@ -51,7 +51,7 @@ describe('navigation', () => {
 
   it('sends the brand back to the check page', async () => {
     const user = userEvent.setup()
-    renderHeader({ page: 'about' })
+    renderHeader({ page: 'settings' })
 
     await user.click(screen.getByRole('button', { name: 'Go to check an image' }))
 

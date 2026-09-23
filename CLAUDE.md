@@ -115,6 +115,22 @@ backend's, and `platform::default_data_dir()` returns the Python paths
 `app_data_dir`. Changing any of them orphans existing users' history.
 `user_version` versions the schema; migrations are forward-only.
 
+**Settings** (`settings.rs`, `models.rs`, the settings half of `service.rs`)
+covers the storage location and the model. `settings.json` lives in Tauri's
+`app_config_dir`; `GAVIA_DATA_DIR` overrides and locks the location. Moving
+storage holds the repository's write lock, checkpoints the WAL, *copies* the
+library (`storage::copy_library`), opens the copy, swaps it in, and only then
+deletes the original. A destination with a `gavia.db` is reopened instead of
+moved into, and a non-empty folder gets a `Gavia/` subfolder. Models are every
+`.onnx` + `.json` pair in the bundled `resources/models` plus
+`<storage>/models`; switching sets the slot to `starting` and reloads on a
+thread. The theme is not a core setting: `src/lib/theme.ts` keeps it in
+`localStorage` and sets `data-theme` on `<html>` in `main.tsx` before the first
+render; every colour in `index.css` is a variable on `:root` /
+`:root[data-theme='dark']` except the detection boxes, which stay red on photos.
+`window.confirm` is a silent `false` in WKWebView, so confirmations go through
+`services/dialog.ts` (tauri-plugin-dialog).
+
 **OS-specific code lives only in `platform/{macos,windows,linux}/`**, each
 exposing the same items, re-exported by `platform/mod.rs` under `cfg`. A new
 item goes into all three.

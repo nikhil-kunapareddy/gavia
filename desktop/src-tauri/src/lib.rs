@@ -10,12 +10,13 @@ pub mod commands;
 pub mod config;
 pub mod detection;
 pub mod error;
+pub mod models;
 pub mod platform;
 pub mod protocol;
 pub mod service;
+pub mod settings;
 pub mod storage;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use tauri::Manager;
@@ -23,15 +24,18 @@ use tauri::path::BaseDirectory;
 use tauri_plugin_log::{Target, TargetKind};
 
 use crate::config::Config;
-use crate::detection::Detector;
-use crate::service::Service;
+use crate::service::{Library, Service};
 
-/// Where the bundled model lives, relative to the app's resource directory.
-pub const MODEL_RESOURCE: &str = "models/loon_v1.onnx";
+/// Where the bundled models live, relative to the app's resource directory.
+pub const MODELS_RESOURCE: &str = "models";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Native confirmations; the webview's window.confirm is a silent no on macOS.
+        .plugin(tauri_plugin_dialog::init())
+        // Opens the storage and models folders in Finder, Explorer or Files.
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)
@@ -53,19 +57,19 @@ pub fn run() {
             std::thread::spawn(move || responder.respond(protocol::respond(service, &path)));
         })
         .setup(|app| {
-            let data_dir = platform::data_dir();
-            log::info!("data directory: {}", data_dir.display());
-            let repository = storage::open(&data_dir)?;
-            let config = Config::from_env();
-            let service = Arc::new(Service::new(repository, config));
+            let library = Library {
+                settings_file: app.path().app_config_dir()?.join("settings.json"),
+                bundled_models: app
+                    .path()
+                    .resolve(MODELS_RESOURCE, BaseDirectory::Resource)?,
+                default_data_dir: platform::default_data_dir(),
+                env_data_dir: platform::env_data_dir(),
+            };
+            let service = Arc::new(Service::open(library, Config::from_env())?);
             app.manage(service.clone());
-
-            let model_path = app
-                .path()
-                .resolve(MODEL_RESOURCE, BaseDirectory::Resource)?;
             // Loading and warming up takes a second or two; the window is up
             // meanwhile, and a check requested early waits for it.
-            std::thread::spawn(move || load_model(&service, model_path));
+            std::thread::spawn(move || service.load_selected_model());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -77,16 +81,11 @@ pub fn run() {
             commands::get_result,
             commands::delete_result,
             commands::clear_results,
+            commands::get_settings,
+            commands::set_data_dir,
+            commands::select_model,
+            commands::open_folder,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Gavia");
-}
-
-fn load_model(service: &Service, model_path: PathBuf) {
-    let config = service.config();
-    service.set_model(Detector::load(
-        &model_path,
-        config.inference_threads,
-        config.tiles,
-    ));
 }

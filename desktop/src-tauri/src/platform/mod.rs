@@ -30,12 +30,12 @@ pub use windows::*;
 /// history on another disk.
 pub const DATA_DIR_ENV: &str = "GAVIA_DATA_DIR";
 
-/// The data directory, honouring [`DATA_DIR_ENV`].
-pub fn data_dir() -> PathBuf {
-    match std::env::var_os(DATA_DIR_ENV) {
-        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
-        _ => default_data_dir(),
-    }
+/// The data directory [`DATA_DIR_ENV`] asks for, if it is set. It overrides
+/// the location chosen in Settings.
+pub fn env_data_dir() -> Option<PathBuf> {
+    std::env::var_os(DATA_DIR_ENV)
+        .filter(|d| !d.is_empty())
+        .map(PathBuf::from)
 }
 
 fn home() -> PathBuf {

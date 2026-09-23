@@ -12,6 +12,10 @@ vi.mock('./services/historyService', () => ({
   saveResult: vi.fn(),
   clearHistory: vi.fn(),
 }))
+// Settings has its own suite in App.settings.test.tsx; here it only needs to load.
+vi.mock('./services/settingsService', () => ({
+  getSettings: vi.fn(() => new Promise(() => {})),
+}))
 
 const analyzeImageMock = vi.mocked(analyzeImage)
 const loadHistoryMock = vi.mocked(loadHistory)
@@ -91,10 +95,11 @@ describe('App navigation', () => {
     expect(screen.getByRole('heading', { name: /Is this a loon\?/ })).toBeInTheDocument()
   })
 
-  it('navigates to the about page', async () => {
+  it('keeps the about section on the settings page', async () => {
     const user = userEvent.setup()
     await renderApp()
-    await user.click(screen.getByRole('button', { name: /About/ }))
+    await user.click(screen.getByRole('button', { name: /Settings/ }))
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Built to support/ })).toBeInTheDocument()
   })
 })

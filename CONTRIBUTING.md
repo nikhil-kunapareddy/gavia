@@ -143,11 +143,11 @@ The installers land in `desktop/src-tauri/target/release/bundle/`.
 
 ### Settings
 
-There's no settings screen. These environment variables are for benchmarking and for trying unusual imagery:
+The Settings screen covers the theme, storage location and model. These environment variables are for benchmarking and for trying unusual imagery:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `GAVIA_DATA_DIR` | see below | Where history is kept |
+| `GAVIA_DATA_DIR` | see below | Where history is kept. Overrides, and locks, the location chosen in Settings |
 | `GAVIA_TILING` | `false` | Tiled inference for small birds in large frames. [Measure](#measure-accuracy) before relying on it |
 | `GAVIA_CONFIDENCE_THRESHOLD` | from the model (0.25) | Minimum score for a box |
 | `GAVIA_IOU_THRESHOLD` | from the model (0.45) | Overlap above which duplicate boxes are merged |
@@ -160,7 +160,7 @@ There's no settings screen. These environment variables are for benchmarking and
 | History | `~/Library/Application Support/Gavia` | `%LOCALAPPDATA%\Gavia` | `~/.local/share/gavia` |
 | Logs | `~/Library/Logs/ai.humanitarians.gavia` | `%LOCALAPPDATA%\ai.humanitarians.gavia\logs` | `~/.local/share/ai.humanitarians.gavia/logs` |
 
-These are the same history folders the earlier Python version of Gavia used, so upgrading keeps everyone's saved checks.
+These are the same history folders the earlier Python version of Gavia used, so upgrading keeps everyone's saved checks. You can move history elsewhere in **Settings**; the choice is saved in `settings.json` in the app's config folder (`~/Library/Application Support/ai.humanitarians.gavia` on macOS). The theme is kept in the webview's `localStorage`, so it applies before the first paint.
 
 ## Test your changes
 
@@ -209,7 +209,7 @@ The split is a YOLO-format text file of image paths, with labels in a sibling `l
 
 ### Updating the model
 
-A retrained model is a two-file drop-in: `resources/models/loon_v1.onnx` and `loon_v1.json` beside it. Thresholds, class names and display labels are all read from the JSON, so no code changes. Export from Ultralytics with static shapes:
+To try a model without rebuilding, put `name.onnx` and `name.json` in the `models/` folder inside the storage location. It appears in **Settings → Detection model**. To ship one with the app, it's the same two-file drop-in into `resources/models/`: Thresholds, class names and display labels are all read from the JSON, so no code changes. Export from Ultralytics with static shapes:
 
 ```python
 from ultralytics import YOLO

@@ -8,7 +8,8 @@
 //! The wire types are camelCase to match `src/types/detection.ts` exactly. The
 //! UI consumes them without a mapping layer, so the two definitions must agree.
 
-use std::sync::{Arc, Condvar, Mutex};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Condvar, Mutex, RwLock, RwLockReadGuard};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +17,12 @@ use crate::config::Config;
 use crate::detection::loader;
 use crate::detection::{DetectError, DetectOptions, Detector};
 use crate::error::ApiError;
+use crate::models::{self, DEFAULT_MODEL, ModelEntry};
 use crate::platform;
-use crate::storage::{NewResult, Repository, SaveError, StoredDetection, StoredResult};
+use crate::settings::Settings;
+use crate::storage::{
+    self, Destination, NewResult, Repository, SaveError, StoredDetection, StoredResult,
+};
 
 /// Content types the uploader may claim. The bytes are sniffed regardless;
 /// this only turns away an obviously wrong file with a clearer message.
@@ -181,9 +186,44 @@ struct ModelSlot {
     ready: Condvar,
 }
 
+/// What the Settings screen shows.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsView {
+    pub data_dir: String,
+    pub default_data_dir: String,
+    pub is_default_data_dir: bool,
+    /// True when `GAVIA_DATA_DIR` sets the location; the app can't change it then.
+    pub data_dir_locked: bool,
+    /// Where extra models can be dropped: `models/` inside the storage location.
+    pub models_dir: String,
+    /// The chosen model's id.
+    pub model: String,
+    pub models: Vec<ModelEntry>,
+    /// The same states as `HealthResponse::status`.
+    pub model_status: &'static str,
+    pub saved_checks: u64,
+    pub version: &'static str,
+}
+
+/// Where Gavia keeps its settings, bundled models and default history. Only
+/// the app has one; tests that need nothing but detection and history don't.
+#[derive(Debug, Clone)]
+pub struct Library {
+    pub settings_file: PathBuf,
+    pub bundled_models: PathBuf,
+    pub default_data_dir: PathBuf,
+    /// Set when `GAVIA_DATA_DIR` overrides the storage location.
+    pub env_data_dir: Option<PathBuf>,
+}
+
 pub struct Service {
     model: ModelSlot,
-    repository: Repository,
+    /// Behind a lock so the storage location can move while the app runs:
+    /// every operation holds a read guard, the move holds the write guard.
+    repository: RwLock<Repository>,
+    library: Option<Library>,
+    settings: Mutex<Settings>,
     config: Config,
 }
 
@@ -194,9 +234,209 @@ impl Service {
                 state: Mutex::new(Slot::Loading),
                 ready: Condvar::new(),
             },
-            repository,
+            repository: RwLock::new(repository),
+            library: None,
+            settings: Mutex::new(Settings::default()),
             config,
         }
+    }
+
+    /// The app's Service: reads `settings.json`, then opens history where it
+    /// says (or where `GAVIA_DATA_DIR` says, which wins).
+    pub fn open(library: Library, config: Config) -> Result<Self, String> {
+        let settings = Settings::load(&library.settings_file);
+        let data_dir = library
+            .env_data_dir
+            .clone()
+            .or_else(|| settings.data_dir.clone())
+            .unwrap_or_else(|| library.default_data_dir.clone());
+        log::info!("data directory: {}", data_dir.display());
+        let mut service = Self::new(storage::open(&data_dir)?, config);
+        service.library = Some(library);
+        *service
+            .settings
+            .get_mut()
+            .unwrap_or_else(|p| p.into_inner()) = settings;
+        Ok(service)
+    }
+
+    fn repo(&self) -> RwLockReadGuard<'_, Repository> {
+        self.repository.read().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn library(&self) -> Result<&Library, ApiError> {
+        self.library
+            .as_ref()
+            .ok_or_else(|| ApiError::internal("settings are unavailable without a library"))
+    }
+
+    fn lock_settings(&self) -> std::sync::MutexGuard<'_, Settings> {
+        self.settings.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn save_settings(&self, settings: &Settings) -> Result<(), ApiError> {
+        settings
+            .save(&self.library()?.settings_file)
+            .map_err(ApiError::internal)
+    }
+
+    /// Models on offer: the bundled ones plus any in `<storage>/models`.
+    pub fn models(&self) -> Vec<ModelEntry> {
+        let custom = self.repo().root().join("models");
+        match &self.library {
+            Some(library) => models::discover(&library.bundled_models, &custom),
+            None => Vec::new(),
+        }
+    }
+
+    /// The chosen model, falling back to the bundled default if the choice
+    /// has gone missing (a custom model deleted, say).
+    pub fn selected_model(&self) -> Result<ModelEntry, String> {
+        let wanted = self
+            .lock_settings()
+            .model
+            .clone()
+            .unwrap_or_else(|| DEFAULT_MODEL.into());
+        let models = self.models();
+        if let Some(entry) = models.iter().find(|m| m.id == wanted) {
+            return Ok(entry.clone());
+        }
+        log::warn!("model {wanted} is not available; using {DEFAULT_MODEL}");
+        models
+            .into_iter()
+            .find(|m| m.id == DEFAULT_MODEL)
+            .ok_or_else(|| format!("the bundled model {DEFAULT_MODEL} is missing"))
+    }
+
+    /// Load (or reload) the chosen model. Blocking: run it on a thread. A
+    /// check requested meanwhile waits for it.
+    pub fn load_selected_model(&self) {
+        self.mark_loading();
+        let loaded = self.selected_model().and_then(|m| {
+            Detector::load(&m.path, self.config.inference_threads, self.config.tiles)
+        });
+        self.set_model(loaded);
+    }
+
+    fn mark_loading(&self) {
+        *self.lock_model() = Slot::Loading;
+    }
+
+    /// Remember a different model. The caller then runs
+    /// [`Service::load_selected_model`] on a thread to switch to it.
+    pub fn select_model(&self, id: &str) -> Result<SettingsView, ApiError> {
+        if !self.models().iter().any(|m| m.id == id) {
+            return Err(ApiError::not_found(format!(
+                "There is no model called {id}."
+            )));
+        }
+        {
+            let mut settings = self.lock_settings();
+            settings.model = (id != DEFAULT_MODEL).then(|| id.to_string());
+            self.save_settings(&settings)?;
+        }
+        self.mark_loading();
+        self.settings()
+    }
+
+    pub fn settings(&self) -> Result<SettingsView, ApiError> {
+        let library = self.library()?;
+        let (data_dir, saved_checks) = {
+            let repo = self.repo();
+            (repo.root().to_path_buf(), repo.count()?)
+        };
+        let model = self
+            .selected_model()
+            .map(|m| m.id)
+            .unwrap_or_else(|_| DEFAULT_MODEL.into());
+        Ok(SettingsView {
+            is_default_data_dir: same_path(&data_dir, &library.default_data_dir),
+            data_dir: data_dir.display().to_string(),
+            default_data_dir: library.default_data_dir.display().to_string(),
+            data_dir_locked: library.env_data_dir.is_some(),
+            models_dir: data_dir.join("models").display().to_string(),
+            model,
+            models: self.models(),
+            model_status: self.health().status,
+            saved_checks,
+            version: env!("CARGO_PKG_VERSION"),
+        })
+    }
+
+    /// The storage location, for opening it in the file manager.
+    pub fn data_dir(&self) -> PathBuf {
+        self.repo().root().to_path_buf()
+    }
+
+    /// Move history to `folder`, or back to the default with `None`.
+    ///
+    /// If the destination already holds a Gavia history, Gavia switches to it
+    /// and moves nothing; otherwise the current history is copied there, the
+    /// copy is opened, and only then is the original removed. A failure at any
+    /// step leaves the original in place and in use.
+    pub fn set_data_dir(&self, folder: Option<PathBuf>) -> Result<SettingsView, ApiError> {
+        let library = self.library()?.clone();
+        if library.env_data_dir.is_some() {
+            return Err(ApiError::invalid_request(
+                "The storage location is set by GAVIA_DATA_DIR, so it can't be changed here.",
+            ));
+        }
+        let folder = folder.unwrap_or_else(|| library.default_data_dir.clone());
+        if !folder.is_absolute() {
+            return Err(ApiError::invalid_request(
+                "Choose a folder by its full path.",
+            ));
+        }
+
+        let mut repository = self.repository.write().unwrap_or_else(|p| p.into_inner());
+        let current = repository.root().to_path_buf();
+        let destination = if same_path(&folder, &current) {
+            Destination::Existing(current.clone())
+        } else {
+            storage::resolve_destination(&folder).map_err(ApiError::invalid_request)?
+        };
+        let target = destination.path().to_path_buf();
+
+        if !same_path(&target, &current) {
+            if matches!(destination, Destination::Empty(_))
+                && (target.starts_with(&current) || current.starts_with(&target))
+            {
+                return Err(ApiError::invalid_request(
+                    "Choose a folder outside the current storage location.",
+                ));
+            }
+            if let Destination::Empty(_) = destination {
+                repository.checkpoint()?;
+                storage::copy_library(&current, &target).map_err(|e| {
+                    ApiError::internal(format!("copying history to {}: {e}", target.display()))
+                })?;
+            }
+            let reopened = storage::open(&target).map_err(|e| {
+                if let Destination::Empty(_) = destination {
+                    storage::remove_library(&target);
+                }
+                ApiError::internal(e)
+            })?;
+            // The old connection closes here, before its files are removed.
+            *repository = reopened;
+            if let Destination::Empty(_) = destination {
+                storage::remove_library(&current);
+            }
+            log::info!(
+                "storage moved from {} to {}",
+                current.display(),
+                target.display()
+            );
+        }
+        drop(repository);
+
+        {
+            let mut settings = self.lock_settings();
+            settings.data_dir =
+                (!same_path(&target, &library.default_data_dir)).then(|| target.clone());
+            self.save_settings(&settings)?;
+        }
+        self.settings()
     }
 
     pub fn config(&self) -> &Config {
@@ -364,7 +604,7 @@ impl Service {
         let format = loader::sniff(bytes)?;
 
         let stored = self
-            .repository
+            .repo()
             .save(NewResult {
                 id: &request.id,
                 file_name: &request.file_name,
@@ -410,7 +650,7 @@ impl Service {
             ));
         }
         Ok(self
-            .repository
+            .repo()
             .list(limit, offset.unwrap_or(0))?
             .iter()
             .map(to_wire)
@@ -418,14 +658,14 @@ impl Service {
     }
 
     pub fn get(&self, id: &str) -> Result<DetectionResult, ApiError> {
-        self.repository
+        self.repo()
             .get(id)?
             .map(|stored| to_wire(&stored))
             .ok_or_else(|| ApiError::not_found("No saved result with that id."))
     }
 
     pub fn delete(&self, id: &str) -> Result<Deleted, ApiError> {
-        if self.repository.delete(id)? {
+        if self.repo().delete(id)? {
             Ok(Deleted { deleted: 1 })
         } else {
             Err(ApiError::not_found("No saved result with that id."))
@@ -434,7 +674,7 @@ impl Service {
 
     pub fn clear(&self) -> Result<Deleted, ApiError> {
         Ok(Deleted {
-            deleted: self.repository.clear()?,
+            deleted: self.repo().clear()?,
         })
     }
 
@@ -447,10 +687,11 @@ impl Service {
         else {
             return Err(not_found());
         };
-        let stored = self.repository.get(id)?.ok_or_else(not_found)?;
+        let repository = self.repo();
+        let stored = repository.get(id)?.ok_or_else(not_found)?;
 
         if kind == "thumb" {
-            match std::fs::read(self.repository.thumb_path(id)) {
+            match std::fs::read(repository.thumb_path(id)) {
                 Ok(bytes) => return Ok((bytes, "image/webp")),
                 // Thumbnailing is best-effort at save time, so fall back to
                 // the original rather than showing a broken image.
@@ -461,7 +702,7 @@ impl Service {
             return Err(not_found());
         }
 
-        let bytes = std::fs::read(self.repository.image_path(id, &stored.image_ext))
+        let bytes = std::fs::read(repository.image_path(id, &stored.image_ext))
             .map_err(|_| ApiError::not_found("The image for that result is missing from disk."))?;
         Ok((bytes, media_type(&stored.image_ext)))
     }
@@ -475,6 +716,13 @@ impl Service {
         }
         Ok(())
     }
+}
+
+/// Whether two paths name the same folder, tolerating trailing slashes and
+/// symlinks (on macOS, /tmp is /private/tmp).
+fn same_path(a: &Path, b: &Path) -> bool {
+    let resolve = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.components().collect());
+    resolve(a) == resolve(b)
 }
 
 fn media_type(extension: &str) -> &'static str {

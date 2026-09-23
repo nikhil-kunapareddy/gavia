@@ -11,6 +11,7 @@
 
 import { ApiError, unframe, type Args } from '../services/api'
 import type { DetectionResult } from '../types/detection'
+import type { AppSettings } from '../types/settings'
 
 interface DetectMeta {
   fileName?: string
@@ -31,6 +32,42 @@ type SaveMeta = Pick<
 
 const ACCEPTED = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const saved = new Map<string, DetectionResult>()
+
+const PREVIEW_MODELS: AppSettings['models'] = [
+  {
+    id: 'loon_v1',
+    name: 'loon_v1',
+    architecture: 'YOLO11s',
+    classes: ['common loon'],
+    metrics: { precision: 0.906, recall: 0.879, mAP50: 0.892 },
+    custom: false,
+  },
+  {
+    id: 'loon_retrained',
+    name: 'loon_retrained',
+    architecture: 'YOLO11s',
+    classes: ['common loon'],
+    metrics: { precision: 0.91, recall: 0.9 },
+    custom: true,
+  },
+]
+
+const previewSettings: AppSettings = {
+  dataDir: '~/Library/Application Support/Gavia',
+  defaultDataDir: '~/Library/Application Support/Gavia',
+  isDefaultDataDir: true,
+  dataDirLocked: false,
+  modelsDir: '~/Library/Application Support/Gavia/models',
+  model: 'loon_v1',
+  models: PREVIEW_MODELS,
+  modelStatus: 'ok',
+  savedChecks: 0,
+  version: 'dev',
+}
+
+function settingsNow(): AppSettings {
+  return { ...previewSettings, savedChecks: saved.size }
+}
 
 function body(args: Args | undefined): Uint8Array {
   if (args instanceof Uint8Array) return args
@@ -106,6 +143,19 @@ export async function previewCall<T>(command: string, args?: Args): Promise<T> {
       saved.clear()
       return { deleted } as T
     }
+    case 'get_settings':
+      return settingsNow() as T
+    case 'set_data_dir': {
+      const { path } = args as { path: string | null }
+      previewSettings.dataDir = path ?? previewSettings.defaultDataDir
+      previewSettings.isDefaultDataDir = path === null
+      return settingsNow() as T
+    }
+    case 'select_model':
+      previewSettings.model = (args as { id: string }).id
+      return settingsNow() as T
+    case 'open_folder':
+      return undefined as T
     case 'health':
       return { status: 'ok', service: 'Gavia (browser preview)', version: 'dev' } as T
     default:

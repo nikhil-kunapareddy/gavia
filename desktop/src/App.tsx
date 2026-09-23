@@ -3,14 +3,27 @@ import { DetectionResult } from './components/DetectionResult'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
 import { revokeIfObjectUrl } from './lib/imageFile'
-import { AboutPage } from './pages/AboutPage'
+import { applyTheme, readTheme, saveTheme } from './lib/theme'
 import { CheckPage } from './pages/CheckPage'
 import { HistoryPage } from './pages/HistoryPage'
+import { SettingsPage, type SettingsBusy } from './pages/SettingsPage'
 import { ApiError } from './services/api'
 import { analyzeImage } from './services/detectionService'
+import { confirmAction } from './services/dialog'
 import { clearHistory, loadHistory, saveResult } from './services/historyService'
+import {
+  chooseDataDir,
+  getSettings,
+  openFolder,
+  resetDataDir,
+  selectModel,
+} from './services/settingsService'
 import type { DetectionResult as Result } from './types/detection'
 import type { Page } from './types/navigation'
+import type { AppSettings, ThemeChoice } from './types/settings'
+
+/** How often to re-read settings while a newly chosen model loads. */
+const MODEL_POLL_MS = 600
 
 const GENERIC_ERROR = 'Something went wrong while checking this image. Please try again.'
 
@@ -31,6 +44,18 @@ function messageFor(cause: unknown): string {
   return GENERIC_ERROR
 }
 
+/**
+ * Settings errors worth showing as written: the core explains why a folder
+ * can't be used ("already has a Gavia folder that isn't a history…") or that
+ * a model has gone missing.
+ */
+const SETTINGS_CODES = new Set(['INVALID_REQUEST', 'NOT_FOUND', 'MODEL_UNAVAILABLE'])
+
+function settingsMessage(cause: unknown, fallback: string): string {
+  if (cause instanceof ApiError && SETTINGS_CODES.has(cause.code)) return cause.message
+  return fallback
+}
+
 function App() {
   const [page, setPage] = useState<Page>('check')
   const [file, setFile] = useState<File | null>(null)
@@ -43,6 +68,68 @@ function App() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [theme, setTheme] = useState<ThemeChoice>(readTheme)
+  const [settings, setSettings] = useState<AppSettings | null>(null)
+  const [settingsError, setSettingsError] = useState('')
+  const [settingsBusy, setSettingsBusy] = useState<SettingsBusy>(null)
+
+  // Returns the cleanup, which stops following the system when the choice
+  // changes away from "system".
+  useEffect(() => applyTheme(theme), [theme])
+
+  function changeTheme(next: ThemeChoice) {
+    saveTheme(next)
+    setTheme(next)
+  }
+
+  const refreshSettings = useCallback(async () => {
+    try {
+      setSettings(await getSettings())
+    } catch (cause) {
+      console.error('Could not load settings:', cause)
+      setSettingsError(settingsMessage(cause, 'Settings could not be loaded.'))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (page === 'settings') void refreshSettings()
+  }, [page, refreshSettings])
+
+  // A newly chosen model loads in the background; keep asking until it's done.
+  useEffect(() => {
+    if (settings?.modelStatus !== 'starting') return
+    const timer = setTimeout(() => void refreshSettings(), MODEL_POLL_MS)
+    return () => clearTimeout(timer)
+  }, [settings, refreshSettings])
+
+  async function runSetting(busy: SettingsBusy, action: () => Promise<AppSettings | null>) {
+    setSettingsBusy(busy)
+    setSettingsError('')
+    try {
+      const next = await action()
+      if (next) {
+        setSettings(next)
+        // History may now come from a different folder.
+        if (busy === 'storage') await refreshHistory()
+      }
+    } catch (cause) {
+      console.error('Could not change settings:', cause)
+      setSettingsError(
+        settingsMessage(cause, 'That setting could not be changed. Please try again.'),
+      )
+    } finally {
+      setSettingsBusy(null)
+    }
+  }
+
+  async function showFolder(which: 'data' | 'models') {
+    try {
+      await openFolder(which)
+    } catch (cause) {
+      console.error('Could not open the folder:', cause)
+      setSettingsError(settingsMessage(cause, 'The folder could not be opened.'))
+    }
+  }
 
   useEffect(() => () => revokeIfObjectUrl(previewUrl), [previewUrl])
 
@@ -146,7 +233,11 @@ function App() {
   }
 
   async function handleClearHistory() {
-    if (!window.confirm('Clear every saved check? This cannot be undone.')) return
+    const confirmed = await confirmAction(
+      'Clear every saved check? This cannot be undone.',
+      'Clear history',
+    )
+    if (!confirmed) return
 
     try {
       await clearHistory()
@@ -198,7 +289,21 @@ function App() {
           />
         )}
 
-        {page === 'about' && <AboutPage />}
+        {page === 'settings' && (
+          <SettingsPage
+            theme={theme}
+            onThemeChange={changeTheme}
+            settings={settings}
+            error={settingsError}
+            busy={settingsBusy}
+            onChooseDataDir={() =>
+              void runSetting('storage', () => chooseDataDir(settings?.dataDir ?? ''))
+            }
+            onResetDataDir={() => void runSetting('storage', resetDataDir)}
+            onOpenFolder={(which) => void showFolder(which)}
+            onSelectModel={(id) => void runSetting('model', () => selectModel(id))}
+          />
+        )}
       </main>
 
       <SiteFooter />

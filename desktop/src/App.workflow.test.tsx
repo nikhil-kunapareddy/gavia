@@ -9,7 +9,7 @@
  * These are the tests that would catch the UI and the core drifting apart.
  */
 
-import { clearMocks, mockIPC } from '@tauri-apps/api/mocks'
+import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -30,7 +30,7 @@ function rejectWith(value: unknown): never {
 }
 
 /** A minimal in-memory stand-in for the core's detect/save/history commands. */
-function fakeCore({ detections = 1 } = {}) {
+function fakeCore({ detections = 1, confirmAnswer = 'Clear history' } = {}) {
   const saved: StoredRow[] = []
   const calls: string[] = []
   let nextId = 0
@@ -79,6 +79,12 @@ function fakeCore({ detections = 1 } = {}) {
       }
       case 'list_results':
         return saved.map((row) => result(row.id, row.fileName, row.detections.length, true))
+      // Theming the native window; nothing to fake.
+      case 'plugin:window|set_theme':
+        return null
+      // The native "are you sure?" dialog; answers with the label clicked.
+      case 'plugin:dialog|message':
+        return confirmAnswer
       case 'clear_results': {
         const deleted = saved.length
         saved.length = 0
@@ -94,6 +100,7 @@ function fakeCore({ detections = 1 } = {}) {
 
 /** Route IPC to a handler; swapping handlers mid-test simulates the core changing. */
 function routeCore(handler: Handler) {
+  mockWindows('main')
   mockIPC((command, payload) => handler(command, payload))
 }
 
@@ -107,7 +114,6 @@ let core: ReturnType<typeof fakeCore>
 beforeEach(() => {
   core = fakeCore()
   routeCore(core.handler)
-  vi.spyOn(window, 'confirm').mockReturnValue(true)
 })
 
 afterEach(() => {
@@ -205,6 +211,24 @@ describe('the full check-and-keep journey', () => {
 
     await waitFor(() => expect(core.saved).toHaveLength(0))
     expect(await screen.findByText(/No saved checks yet/)).toBeInTheDocument()
+  })
+
+  it('keeps the history when the reviewer cancels clearing it', async () => {
+    core = fakeCore({ confirmAnswer: 'Cancel' })
+    const user = userEvent.setup()
+    await renderApp()
+
+    await uploadAndCheck(user)
+    await screen.findByRole('heading', { name: '1 loon detected' })
+    await user.click(screen.getByRole('button', { name: /Save result/ }))
+    await waitFor(() => expect(core.saved).toHaveLength(1))
+
+    await user.click(historyNavButton())
+    await user.click(await screen.findByRole('button', { name: /Clear history/ }))
+
+    await waitFor(() => expect(core.calls).toContain('plugin:dialog|message'))
+    expect(core.calls).not.toContain('clear_results')
+    expect(core.saved).toHaveLength(1)
   })
 
   it('checks several photos in a row', async () => {

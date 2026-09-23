@@ -93,6 +93,8 @@ The current model, `loon_v1`, is a YOLO11s detector trained on the `loonnet_v1` 
 | --- | --- | --- |
 | 0.906 | 0.879 | 0.891 |
 
+You can pick a different model in **Settings → Detection model**. To try a retrained one, put its `.onnx` and `.json` files in the models folder shown there.
+
 It's an early model trained on a small dataset. Use its confidence scores as a starting point for review, not as the answer. It's trained on common loons only.
 
 </details>
@@ -109,6 +111,8 @@ Only on your computer:
 | Linux | `~/.local/share/gavia` |
 
 Inside it, `gavia.db` holds the results, `images/` holds your original photos exactly as you opened them, and `thumbs/` holds small previews. You can delete a single check or clear everything from the History screen.
+
+To keep them somewhere else, such as an external drive, open **Settings → Storage location → Change…**. Gavia moves your history to the new folder.
 
 </details>
 

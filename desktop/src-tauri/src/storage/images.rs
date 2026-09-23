@@ -16,6 +16,7 @@ const THUMBNAIL_QUALITY: f32 = 72.0;
 
 /// Keyed by result id, never by anything a client sends.
 pub struct ImageStore {
+    root: PathBuf,
     images: PathBuf,
     thumbs: PathBuf,
 }
@@ -25,12 +26,18 @@ impl ImageStore {
     /// is one directory to delete and cannot touch a user's source images.
     pub fn new(root: &Path) -> std::io::Result<Self> {
         let store = Self {
+            root: root.to_path_buf(),
             images: root.join("images"),
             thumbs: root.join("thumbs"),
         };
         std::fs::create_dir_all(&store.images)?;
         std::fs::create_dir_all(&store.thumbs)?;
         Ok(store)
+    }
+
+    /// The storage location this store writes under.
+    pub fn root(&self) -> &Path {
+        &self.root
     }
 
     pub fn image_path(&self, result_id: &str, extension: &str) -> PathBuf {
