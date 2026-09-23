@@ -1,4 +1,0 @@
-# Test-only. The parity and evaluate scripts additionally need ultralytics,
-# which deliberately lives outside this file: see backend/scripts/README.
--r requirements.txt
-pytest==9.1.1

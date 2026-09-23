@@ -1,11 +1,14 @@
-# Normalize line endings on checkin, leave native on checkout.
-* text=auto
+# LF everywhere, including Windows checkouts, so a commit from one system
+# never rewrites every line for the others.
+* text=auto eol=lf
 
 # Explicitly binary so git never mangles them.
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.gif binary
+*.webp binary
+*.mpo binary
 *.ico binary
 *.icns binary
 *.pdf binary
@@ -24,5 +27,5 @@
 # its model, and 36MB is a one-time clone cost.
 *.onnx binary
 
-# Keep shell scripts LF even on Windows checkouts.
-*.sh text eol=lf
+# PowerShell scripts are the one exception.
+*.ps1 text eol=crlf
