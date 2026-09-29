@@ -13,7 +13,7 @@ runs:
           libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
           libssl-dev libxdo-dev patchelf file pkg-config build-essential
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v7
       with:
         node-version: 22
         cache: npm
