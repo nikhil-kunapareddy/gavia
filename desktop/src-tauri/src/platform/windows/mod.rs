@@ -15,3 +15,8 @@ pub fn default_data_dir() -> PathBuf {
 pub fn legacy_data_dir() -> Option<PathBuf> {
     None
 }
+
+/// The updater runs the new NSIS installer, which installs per user.
+pub fn can_self_update() -> bool {
+    true
+}

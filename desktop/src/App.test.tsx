@@ -5,6 +5,7 @@ import App from './App'
 import { ApiError } from './services/api'
 import { analyzeImage } from './services/detectionService'
 import { clearHistory, loadHistory, saveResult } from './services/historyService'
+import { downloadUpdate } from './services/updateService'
 
 vi.mock('./services/detectionService', () => ({ analyzeImage: vi.fn() }))
 vi.mock('./services/historyService', () => ({
@@ -12,6 +13,7 @@ vi.mock('./services/historyService', () => ({
   saveResult: vi.fn(),
   clearHistory: vi.fn(),
 }))
+vi.mock('./services/updateService', () => ({ downloadUpdate: vi.fn() }))
 // Settings has its own suite in App.settings.test.tsx; here it only needs to load.
 vi.mock('./services/settingsService', () => ({
   getSettings: vi.fn(() => new Promise(() => {})),
@@ -21,6 +23,7 @@ const analyzeImageMock = vi.mocked(analyzeImage)
 const loadHistoryMock = vi.mocked(loadHistory)
 const saveResultMock = vi.mocked(saveResult)
 const clearHistoryMock = vi.mocked(clearHistory)
+const downloadUpdateMock = vi.mocked(downloadUpdate)
 
 function makeResult(overrides = {}) {
   return {
@@ -58,6 +61,8 @@ beforeEach(() => {
   saveResultMock.mockReset()
   clearHistoryMock.mockReset()
   loadHistoryMock.mockResolvedValue([])
+  downloadUpdateMock.mockReset()
+  downloadUpdateMock.mockResolvedValue(null)
 })
 
 /**
@@ -240,5 +245,58 @@ describe('history', () => {
 
     await user.click(screen.getByRole('button', { name: /Previous checks/ }))
     expect(await screen.findByText(/No saved checks yet/)).toBeInTheDocument()
+  })
+})
+
+describe('updates', () => {
+  function readyUpdate(install = vi.fn(() => Promise.resolve())) {
+    downloadUpdateMock.mockResolvedValue({ version: '0.3.0', install })
+    return install
+  }
+
+  it('offers a downloaded update and installs it when asked', async () => {
+    const install = readyUpdate()
+    const user = userEvent.setup()
+    await renderApp()
+
+    await user.click(await screen.findByRole('button', { name: 'Restart now' }))
+
+    expect(install).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: /Installing/ })).toBeDisabled()
+  })
+
+  it('says nothing when there is no update', async () => {
+    await renderApp()
+    await waitFor(() => expect(downloadUpdateMock).toHaveBeenCalled())
+    expect(screen.queryByText(/is ready/)).not.toBeInTheDocument()
+  })
+
+  it('can be put off until next time', async () => {
+    readyUpdate()
+    const user = userEvent.setup()
+    await renderApp()
+
+    await user.click(await screen.findByRole('button', { name: 'Later' }))
+
+    expect(screen.queryByText(/is ready/)).not.toBeInTheDocument()
+  })
+
+  it('explains a failed install and lets it be tried again', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const install = readyUpdate(vi.fn(() => Promise.reject(new Error('not an AppImage'))))
+    const user = userEvent.setup()
+    await renderApp()
+
+    await user.click(await screen.findByRole('button', { name: 'Restart now' }))
+
+    expect(await screen.findByText(/could not be installed here/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restart now' })).toBeEnabled()
+    expect(install).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not check when checks are turned off', async () => {
+    localStorage.setItem('gavia.autoUpdate', 'off')
+    await renderApp()
+    expect(downloadUpdateMock).not.toHaveBeenCalled()
   })
 })

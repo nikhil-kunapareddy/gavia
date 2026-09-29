@@ -8,8 +8,8 @@ Gavia finds loons in field photographs: open an image, get bounding boxes with
 confidence scores, keep the ones worth keeping. One Tauri 2 app for macOS
 (Apple Silicon), Windows and Linux: a React 18 + TypeScript interface (Vite,
 Tailwind) over a Rust core that runs YOLO11s through ONNX Runtime (`ort`).
-Fully offline. There was a Python/FastAPI backend until the Rust port; it is
-gone, and `src-tauri/tests/fixtures/python_reference.json` is what remains of it.
+Offline except for an update check at startup, which Settings can turn off.
+There was a Python/FastAPI backend until the Rust port; it is gone, and `src-tauri/tests/fixtures/python_reference.json` is what remains of it.
 
 ## Commands
 
@@ -135,6 +135,22 @@ render; every colour in `index.css` is a variable on `:root` /
 `window.confirm` is a silent `false` in WKWebView, so confirmations go through
 `services/dialog.ts` (tauri-plugin-dialog).
 
+**Updates** come from GitHub Releases through `tauri-plugin-updater`. The UI
+starts the check (`services/updateService.ts`) once per launch unless
+`gavia.autoUpdate` is `off` in `localStorage` (`lib/updates.ts`, like the
+theme), downloads in the background, and restarts only when the reviewer
+clicks. The core registers the plugin in `setup` only where
+`platform::can_self_update()` (not a Linux `.deb`/`.rpm`); without it the check
+fails and the UI treats that as no update. The endpoint is
+`releases/latest/download/latest.json`, so only a release promoted to Latest
+reaches installed copies. Tag builds sign update archives with the
+`TAURI_SIGNING_PRIVATE_KEY` secret, passing
+`--config src-tauri/tauri.updater.conf.json` (other builds can't see the
+secret, so they make no archives), and the
+`update manifest` job writes `latest.json` with `scripts/updater-manifest.mjs`.
+The public key is `plugins.updater.pubkey` in `tauri.conf.json`; replacing it
+strands every installed copy.
+
 **OS-specific code lives only in `platform/{macos,windows,linux}/`**, each
 exposing the same items, re-exported by `platform/mod.rs` under `cfg`. A new
 item goes into all three.
@@ -187,8 +203,9 @@ When adding a command or changing a result's shape, update `service.rs` (+
 `.github/workflows/desktop.yml`: `frontend` (typecheck, lint, format, coverage,
 build), `rust (macOS|Windows|Linux)` (fmt on Linux, clippy, test), `audit`
 (`npm audit`, `cargo audit`), then `installers (…)` on all three, uploaded as
-artifacts on every run. A `v*` tag skips the checks and attaches installers to
-the release `npm run release` created — releases are created with a person's
+artifacts on every run. A `v*` tag skips the checks, attaches installers and
+signed update archives to the release `npm run release` created, and then
+`update manifest` attaches `latest.json` — releases are created with a person's
 `gh` login because a workflow token can't create a release that triggers other
 workflows. Linux system packages live in
 `.github/actions/setup-desktop-build/action.yml`. `main` is protected by a
@@ -208,7 +225,8 @@ may bypass the approval in pull-request mode).
   the failed insert's rollback deletes the original's files.
 - **ONNX Runtime has no Intel Mac build**, so macOS ships for
   `aarch64-apple-darwin` only. `ort` downloads and statically links ORT at build
-  time (`download-binaries`); the app itself makes no network connections.
+  time (`download-binaries`); the app's only network connection is the update
+  check.
 - **The bundle must be ad-hoc signed or file dialogs abort the app.**
   `bundle.macOS.signingIdentity: "-"` (in `tauri.macos.conf.json`) is
   load-bearing: without it `+[NSOpenPanel openPanel]` returns nil, wry does not

@@ -80,7 +80,7 @@ The extra steps on Mac and Windows are there because the app isn't signed by App
 <details>
 <summary><b>Does anything get sent over the internet?</b></summary>
 
-No. The detector runs on your computer, and Gavia never makes a network connection. There's no account, no analytics and no update check.
+Only an update check. When Gavia starts, it asks GitHub whether a newer version is out and, if one is, downloads it and offers to restart into it. You can turn this off in **Settings → Updates**. The detector runs on your computer, your photos never leave it, and there's no account and no analytics.
 
 </details>
 

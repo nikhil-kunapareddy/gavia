@@ -82,6 +82,9 @@ function fakeCore({ detections = 1, confirmAnswer = 'Clear history' } = {}) {
       // Theming the native window; nothing to fake.
       case 'plugin:window|set_theme':
         return null
+      // The update check at startup: nothing newer.
+      case 'plugin:updater|check':
+        return null
       // The native "are you sure?" dialog; answers with the label clicked.
       case 'plugin:dialog|message':
         return confirmAnswer

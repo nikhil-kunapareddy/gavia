@@ -114,6 +114,20 @@ describe('appearance', () => {
   })
 })
 
+describe('updates', () => {
+  it('checks at startup until turned off, and remembers the choice', async () => {
+    const user = await openSettings()
+
+    const toggle = screen.getByRole('checkbox', { name: /Check for updates/ })
+    expect(toggle).toBeChecked()
+
+    await user.click(toggle)
+
+    expect(toggle).not.toBeChecked()
+    expect(localStorage.getItem('gavia.autoUpdate')).toBe('off')
+  })
+})
+
 describe('storage location', () => {
   it('shows where history lives and how much is there', async () => {
     await openSettings()

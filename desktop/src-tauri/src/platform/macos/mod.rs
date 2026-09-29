@@ -18,3 +18,8 @@ pub fn legacy_data_dir() -> Option<PathBuf> {
             .join("Gavia"),
     )
 }
+
+/// The updater swaps in a new `Gavia.app` in place.
+pub fn can_self_update() -> bool {
+    true
+}
