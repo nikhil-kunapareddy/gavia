@@ -156,8 +156,11 @@ jobs:
   updater:
     name: update manifest
     needs: [bundle]
-    # Every platform must have attached its update, or none is offered.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Every platform must have attached its update, or none is offered. The
+    # status check is spelled out because the checks before `bundle` are
+    # skipped on a tag, and a skip anywhere upstream skips a job whose `if`
+    # leaves it implicit.
+    if: ${{ !cancelled() && needs.bundle.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
     permissions:
       contents: write
     runs-on: ubuntu-24.04
