@@ -10,6 +10,9 @@
 //! - `ASSET_ORIGIN`: how the webview spells a `gavia://` URL. Windows' WebView2
 //!   cannot load custom schemes directly and Tauri maps them onto
 //!   `http://<scheme>.localhost` there.
+//! - `can_self_update()`: whether the updater can replace this install. It
+//!   can't replace a Linux `.deb` or `.rpm`, which belong to the package
+//!   manager, so there it is only true for an AppImage.
 //!
 //! Adding an item means adding it to all three folders.
 

@@ -14,3 +14,9 @@ pub fn default_data_dir() -> PathBuf {
 pub fn legacy_data_dir() -> Option<PathBuf> {
     None
 }
+
+/// Only an AppImage, which sets `APPIMAGE` to its own path when it runs.
+/// A `.deb` or `.rpm` is the package manager's to update.
+pub fn can_self_update() -> bool {
+    std::env::var_os("APPIMAGE").is_some()
+}

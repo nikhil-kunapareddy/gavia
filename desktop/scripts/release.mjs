@@ -13,7 +13,8 @@
 // triggers other workflows, but it can upload to one that already exists.
 // Every release starts as a pre-release so "Latest" never points at a release
 // whose installers are still building; promote a stable one by hand once CI
-// has attached them.
+// has attached them. Promoting is also what ships it to installed copies,
+// which read latest.json from the release marked Latest.
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -88,5 +89,8 @@ run('gh', ['release', 'create', tag, '--repo', REPO, '--verify-tag', '--prerelea
 
 console.log(`\nCreated ${tag}. CI is building the installers: https://github.com/${REPO}/actions`)
 if (channel === 'stable') {
-  console.log(`Once they are attached, promote it:\n  gh release edit ${tag} --repo ${REPO} --prerelease=false --latest`)
+  console.log(
+    `Once they and latest.json are attached, promote it; installed copies then offer the update:\n` +
+      `  gh release edit ${tag} --repo ${REPO} --prerelease=false --latest`,
+  )
 }

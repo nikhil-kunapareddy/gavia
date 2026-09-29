@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window: core APIs, window theme, and native dialogs for confirmations and choosing the storage folder.",
+  "description": "The main window: core APIs, window theme, native dialogs for confirmations and choosing the storage folder, and installing updates.",
   "windows": [
     "main"
   ],
@@ -9,6 +9,8 @@
     "core:default",
     "core:window:allow-set-theme",
     "dialog:allow-message",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

@@ -3,7 +3,8 @@ name: Desktop
 # Every push to main or dev and every pull request is checked on all three
 # systems and produces installers you can download from the run's summary.
 # Pushing a `v*` tag skips the checks (the tagged commit already passed them)
-# and attaches the installers to the release `npm run release` created.
+# and attaches the installers to the release `npm run release` created, along
+# with signed update archives and the latest.json installed copies read.
 on:
   push:
     branches: [main, dev]
@@ -109,9 +110,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-desktop-build
+      # Releases also get signed update archives. Only there: the signing key
+      # is a secret, which pull requests from forks and Dependabot never see.
       - name: Build
         shell: bash
-        run: npx tauri build ${{ matrix.args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            npx tauri build ${{ matrix.args }} --config src-tauri/tauri.updater.conf.json
+          else
+            npx tauri build ${{ matrix.args }}
+          fi
       # See make-dmg.sh for why the .dmg is not Tauri's; it also refuses to
       # package a bundle whose signature would abort the file picker.
       - name: Package the .dmg
@@ -138,4 +149,27 @@ jobs:
           # macOS ships bash 3.2, so no globstar: list both output depths.
           shopt -s nullglob
           files=({,*/}release/bundle/{dmg/*.dmg,nsis/*.exe,deb/*.deb,rpm/*.rpm,appimage/*.AppImage})
+          # The update archive and its signature, for updater-manifest.mjs.
+          files+=({,*/}release/bundle/{macos/*.app.tar.gz{,.sig},nsis/*.exe.sig,appimage/*.AppImage.sig})
           gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+
+  updater:
+    name: update manifest
+    needs: [bundle]
+    # Every platform must have attached its update, or none is offered.
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Write and attach latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern '*.sig' --dir "$RUNNER_TEMP/sigs"
+          node scripts/updater-manifest.mjs "$GITHUB_REF_NAME" "$RUNNER_TEMP/sigs" > "$RUNNER_TEMP/latest.json"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/latest.json" --clobber
