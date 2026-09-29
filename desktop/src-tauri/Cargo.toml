@@ -1,6 +1,6 @@
 [package]
 name = "gavia"
-version = "0.2.0"
+version = "0.3.0"
 description = "Gavia — loon detection for the field"
 authors = ["Humanitarians AI"]
 # Inherited from the model, which descends from Ultralytics YOLO11.
@@ -49,6 +49,11 @@ webp = { version = "0.3", default-features = false }
 rusqlite = { version = "0.40", features = ["bundled"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+# Updates from GitHub Releases, checked at startup unless turned off in
+# Settings. The only network connection Gavia makes.
+tauri-plugin-updater = "2"
+# Relaunches after an update is installed.
+tauri-plugin-process = "2"
 
 [dev-dependencies]
 tempfile = "3"

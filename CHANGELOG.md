@@ -4,6 +4,16 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-29
+
+### Added
+- Updates. When Gavia starts, it checks GitHub for a newer release, downloads it in the background, and offers to restart into it. It never restarts on its own. **Settings → Updates** turns the check off; it is the only thing Gavia sends over the internet.
+
+### Changed
+- On Linux, only the AppImage updates itself. A `.deb` or `.rpm` install is updated through the package manager, or by installing the new file by hand.
+
+Copies of 0.2.0 have no updater, so moving to 0.3.0 is a one-time manual install. From 0.3.0 on, updates arrive on their own.
+
 ## [0.2.0] - 2026-09-23
 
 ### Added
