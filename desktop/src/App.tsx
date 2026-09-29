@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { DetectionResult } from './components/DetectionResult'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
+import { UpdateBanner } from './components/UpdateBanner'
 import { describeSkipped, type Skipped } from './lib/batch'
 import { revokeIfObjectUrl } from './lib/imageFile'
 import { applyTheme, readTheme, saveTheme } from './lib/theme'
+import { readAutoUpdate, saveAutoUpdate } from './lib/updates'
 import { BatchPage } from './pages/BatchPage'
 import { CheckPage } from './pages/CheckPage'
 import { HelpPage } from './pages/HelpPage'
@@ -21,6 +23,7 @@ import {
   resetDataDir,
   selectModel,
 } from './services/settingsService'
+import { downloadUpdate, type ReadyUpdate } from './services/updateService'
 import type { BatchBusy, BatchItem } from './types/batch'
 import type { DetectionResult as Result } from './types/detection'
 import type { Page } from './types/navigation'
@@ -83,6 +86,10 @@ function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [settingsError, setSettingsError] = useState('')
   const [settingsBusy, setSettingsBusy] = useState<SettingsBusy>(null)
+  const [autoUpdate, setAutoUpdate] = useState(readAutoUpdate)
+  const [update, setUpdate] = useState<ReadyUpdate | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const [updateError, setUpdateError] = useState('')
 
   // Returns the cleanup, which stops following the system when the choice
   // changes away from "system".
@@ -91,6 +98,37 @@ function App() {
   function changeTheme(next: ThemeChoice) {
     saveTheme(next)
     setTheme(next)
+  }
+
+  // Once per launch, so turning checks on in Settings takes effect next time.
+  useEffect(() => {
+    if (!readAutoUpdate()) return
+    let cancelled = false
+    void downloadUpdate().then((ready) => {
+      if (!cancelled) setUpdate(ready)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function changeAutoUpdate(on: boolean) {
+    saveAutoUpdate(on)
+    setAutoUpdate(on)
+  }
+
+  async function installUpdate() {
+    if (!update) return
+    setInstalling(true)
+    setUpdateError('')
+    try {
+      // Restarts into the new version, so there is nothing to do after.
+      await update.install()
+    } catch (cause) {
+      console.error('Could not install the update:', cause)
+      setUpdateError('It could not be installed here; download it from the Gavia releases page.')
+      setInstalling(false)
+    }
   }
 
   const refreshSettings = useCallback(async () => {
@@ -394,6 +432,16 @@ function App() {
       />
 
       <main className="main-content">
+        {update && (
+          <UpdateBanner
+            version={update.version}
+            installing={installing}
+            error={updateError}
+            onInstall={() => void installUpdate()}
+            onDismiss={() => setUpdate(null)}
+          />
+        )}
+
         {page === 'check' &&
           (openItem?.result ? (
             <DetectionResult
@@ -453,6 +501,8 @@ function App() {
           <SettingsPage
             theme={theme}
             onThemeChange={changeTheme}
+            autoUpdate={autoUpdate}
+            onAutoUpdateChange={changeAutoUpdate}
             settings={settings}
             error={settingsError}
             busy={settingsBusy}

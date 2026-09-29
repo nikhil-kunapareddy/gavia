@@ -4,7 +4,8 @@
 //! through `invoke` (see `commands.rs`); stored images reach `<img>` tags
 //! through the `gavia://` scheme (see `protocol.rs`). There is no local server,
 //! no port and no token, so there is nothing for another process on the
-//! machine to connect to.
+//! machine to connect to. The only outbound connection is the update check
+//! (`tauri-plugin-updater`), which the reviewer can turn off in Settings.
 
 pub mod commands;
 pub mod config;
@@ -36,6 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         // Opens the storage and models folders in Finder, Explorer or Files.
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)
@@ -57,6 +59,13 @@ pub fn run() {
             std::thread::spawn(move || responder.respond(protocol::respond(service, &path)));
         })
         .setup(|app| {
+            // Updates from GitHub Releases; the UI decides whether to check.
+            // Without the plugin a check simply fails, which the UI treats as
+            // "no update".
+            if platform::can_self_update() {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             let library = Library {
                 settings_file: app.path().app_config_dir()?.join("settings.json"),
                 bundled_models: app

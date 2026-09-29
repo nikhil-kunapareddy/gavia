@@ -263,13 +263,16 @@ Maintainers only. Releases are built by CI from a tag:
 
 1. Bump the version in `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml` and `desktop/package.json`, add a section to `CHANGELOG.md`, and merge to `main`.
 2. From an up-to-date `main`: `cd desktop && npm run release` for a beta, `npm run release -- stable` for the real thing. The script needs the [GitHub CLI](https://cli.github.com), signed in.
-3. CI builds the installers on all three systems and attaches them to the release. Releases start as pre-releases; promote a stable one once its files are attached, with the command the script prints.
+3. CI builds the installers on all three systems and attaches them to the release, with signed update archives and a `latest.json`. Releases start as pre-releases; promote a stable one once its files are attached, with the command the script prints.
+4. Promoting is what ships it: installed copies read `latest.json` from the release marked Latest, so they offer the update from then on.
+
+Update archives are signed with the key in the `TAURI_SIGNING_PRIVATE_KEY` repository secret (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, empty if the key has none); its public half is `plugins.updater.pubkey` in `tauri.conf.json`. Keep a copy of the private key somewhere safe. Installed copies accept updates signed by that key only, so if it is lost, everyone has to reinstall by hand.
 
 ## Troubleshooting
 
 **`npm run app` says port 5173 is in use.** Another dev server is running. Stop it, or anything else on that port. Tauri waits on exactly that port.
 
-**The first build fails downloading ONNX Runtime.** The `ort` crate fetches it at build time. Check your connection or proxy, then rebuild. Once built, the app itself never touches the network.
+**The first build fails downloading ONNX Runtime.** The `ort` crate fetches it at build time. Check your connection or proxy, then rebuild. Once built, the app only goes online to check for updates, which Settings can turn off.
 
 **Windows: `link.exe` not found.** The Visual Studio Build Tools C++ workload is missing, or you're not on the MSVC toolchain. Run `rustup default stable-msvc`.
 

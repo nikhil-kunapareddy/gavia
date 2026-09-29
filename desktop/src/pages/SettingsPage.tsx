@@ -6,6 +6,8 @@ export type SettingsBusy = 'storage' | 'model' | null
 interface SettingsPageProps {
   theme: ThemeChoice
   onThemeChange: (theme: ThemeChoice) => void
+  autoUpdate: boolean
+  onAutoUpdateChange: (on: boolean) => void
   settings: AppSettings | null
   error: string
   busy: SettingsBusy
@@ -33,6 +35,8 @@ function modelStatusText(status: Exclude<ModelStatus, 'ok'>): string {
 export function SettingsPage({
   theme,
   onThemeChange,
+  autoUpdate,
+  onAutoUpdateChange,
   settings,
   error,
   busy,
@@ -168,6 +172,27 @@ export function SettingsPage({
         ) : (
           <p className="settings-hint">Loading…</p>
         )}
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-label">
+          <h2>Updates</h2>
+          <p>
+            When Gavia starts, it asks GitHub for a newer release and downloads it in the
+            background. That is the only thing Gavia sends over the internet; your photos never
+            leave this computer.
+          </p>
+        </div>
+        <div className="settings-control">
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={autoUpdate}
+              onChange={(event) => onAutoUpdateChange(event.target.checked)}
+            />
+            Check for updates when Gavia starts
+          </label>
+        </div>
       </div>
 
       {settings && (
