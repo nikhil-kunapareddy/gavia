@@ -32,8 +32,9 @@ if (!CHANNELS.includes(channel)) fail(`unknown channel "${channel}"; use one of 
 const here = dirname(fileURLToPath(import.meta.url))
 const { version } = JSON.parse(readFileSync(join(here, '../src-tauri/tauri.conf.json'), 'utf8'))
 
+// With `stdio: 'inherit'` there is no output to return, and execFileSync gives null.
 function run(command, argv, options = {}) {
-  return execFileSync(command, argv, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...options }).trim()
+  return (execFileSync(command, argv, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...options }) ?? '').trim()
 }
 
 function fail(message) {

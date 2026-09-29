@@ -1,12 +1,15 @@
 import { ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
 import { ImageUploader } from '../components/ImageUploader'
+import type { Skipped } from '../lib/batch'
 
 interface CheckPageProps {
   file: File | null
   previewUrl: string | null
   processing: boolean
   error: string
-  onFile: (file: File) => void
+  /** What was left out of the last selection, if anything. */
+  notice?: string
+  onFiles: (images: File[], skipped: Skipped[]) => void
   onRemove: () => void
   onCheck: () => void
 }
@@ -16,7 +19,8 @@ export function CheckPage({
   previewUrl,
   processing,
   error,
-  onFile,
+  notice = '',
+  onFiles,
   onRemove,
   onCheck,
 }: CheckPageProps) {
@@ -28,13 +32,14 @@ export function CheckPage({
             Is this a <em>loon?</em>
           </h1>
           <p className="intro-lede">
-            Upload a photo or take a picture to check whether a loon is present.
+            Upload photos, or a zip of them, to check whether a loon is present.
           </p>
         </div>
       </div>
 
       <div className="check-panel">
-        <ImageUploader file={file} previewUrl={previewUrl} onFile={onFile} onRemove={onRemove} />
+        <ImageUploader file={file} previewUrl={previewUrl} onFiles={onFiles} onRemove={onRemove} />
+        {notice && <p className="notice-text">{notice}</p>}
         {file && (
           <button
             className="button button-accent check-button"

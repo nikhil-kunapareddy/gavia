@@ -12,6 +12,7 @@
 import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { strToU8, zipSync } from 'fflate'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { unframe } from './services/api'
@@ -30,7 +31,12 @@ function rejectWith(value: unknown): never {
 }
 
 /** A minimal in-memory stand-in for the core's detect/save/history commands. */
-function fakeCore({ detections = 1, confirmAnswer = 'Clear history' } = {}) {
+function fakeCore({
+  detections = 1,
+  confirmAnswer = 'Clear history',
+  // How many loons the detector finds in a file, by name.
+  loonsIn = (_fileName: string) => detections,
+} = {}) {
   const saved: StoredRow[] = []
   const calls: string[] = []
   let nextId = 0
@@ -67,7 +73,7 @@ function fakeCore({ detections = 1, confirmAnswer = 'Clear history' } = {}) {
     switch (command) {
       case 'detect': {
         const { meta } = unframe<{ fileName: string }>(payload as Uint8Array)
-        return result(`r${nextId++}`, meta.fileName, detections, false)
+        return result(`r${nextId++}`, meta.fileName, loonsIn(meta.fileName), false)
       }
       case 'save_result': {
         const { meta } = unframe<StoredRow>(payload as Uint8Array)
@@ -395,5 +401,252 @@ describe('when the core misbehaves', () => {
     )
     expect(meta).toEqual({ fileName: 'lake.jpg', contentType: 'image/jpeg' })
     expect(new TextDecoder().decode(bytes)).toBe('image-bytes')
+  })
+})
+
+describe('checking several images at once', () => {
+  async function uploadMany(user: ReturnType<typeof userEvent.setup>, files: File[]) {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, files)
+  }
+
+  function photos(...names: string[]) {
+    return names.map((name) => photo(name))
+  }
+
+  it('checks every image, then saves the ones with loons', async () => {
+    core = fakeCore({ loonsIn: (name) => (name === 'empty.jpg' ? 0 : 1) })
+    const user = userEvent.setup()
+    await renderApp()
+
+    await uploadMany(user, photos('a.jpg', 'empty.jpg', 'c.jpg'))
+    expect(await screen.findByRole('heading', { name: '3 images to check' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Check 3 images/ }))
+    expect(
+      await screen.findByRole('heading', { name: 'Loons in 2 of 3 images' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /empty.jpg No loon detected/ })).toBeInTheDocument()
+    // Nothing is stored until the reviewer decides.
+    expect(core.saved).toHaveLength(0)
+
+    await user.click(screen.getByRole('button', { name: /Save 2 with loons/ }))
+    expect(await screen.findByRole('button', { name: /Saved to history/ })).toBeDisabled()
+    expect(core.saved.map((row) => row.fileName)).toEqual(['c.jpg', 'a.jpg'])
+
+    await user.click(historyNavButton())
+    expect(await screen.findAllByText(/1 loon · 94% highest confidence/)).toHaveLength(2)
+  })
+
+  it('opens one image, saves it there, and goes back to the rest', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await uploadMany(user, photos('a.jpg', 'b.jpg'))
+    await user.click(await screen.findByRole('button', { name: /Check 2 images/ }))
+    await user.click(await screen.findByRole('button', { name: /a.jpg 1 loon/ }))
+
+    expect(await screen.findByRole('heading', { name: '1 loon detected' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Save result/ }))
+    expect(await screen.findByRole('button', { name: /Saved to history/ })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: /Back to all images/ }))
+    expect(screen.getByRole('button', { name: /a.jpg 1 loon · 94% · Saved/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Save 1 with loons/ })).toBeEnabled()
+    expect(core.saved.map((row) => row.fileName)).toEqual(['a.jpg'])
+  })
+
+  it('unpacks a zip and sends each image on its own', async () => {
+    const user = userEvent.setup()
+    const calls = await renderApp()
+    const zip = new File(
+      [zipSync({ 'trip/one.jpg': strToU8('one'), 'trip/two.jpg': strToU8('two') })],
+      'trip.zip',
+      { type: 'application/zip' },
+    )
+
+    await uploadMany(user, [zip])
+    await user.click(await screen.findByRole('button', { name: /Check 2 images/ }))
+    await screen.findByRole('heading', { name: 'Loons in 2 of 2 images' })
+
+    const sent = calls.mock.calls
+      .filter(([command]) => command === 'detect')
+      .map(([, body]) => unframe<{ fileName: string; contentType: string }>(body as Uint8Array))
+    expect(sent.map(({ meta }) => meta)).toEqual([
+      { fileName: 'one.jpg', contentType: 'image/jpeg' },
+      { fileName: 'two.jpg', contentType: 'image/jpeg' },
+    ])
+    expect(sent.map(({ bytes }) => new TextDecoder().decode(bytes))).toEqual(['one', 'two'])
+  })
+
+  it('goes through the single check for one image, saying what it left out', async () => {
+    const user = userEvent.setup({ applyAccept: false })
+    await renderApp()
+
+    await uploadMany(user, [
+      photo('lake.jpg'),
+      new File(['x'], 'notes.txt', { type: 'text/plain' }),
+    ])
+
+    expect(await screen.findByRole('button', { name: /Check for loons/ })).toBeInTheDocument()
+    expect(screen.getByText("Left out 1 file Gavia can't check: notes.txt.")).toBeInTheDocument()
+  })
+
+  it('starts over from the uploader', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await uploadMany(user, photos('a.jpg', 'b.jpg'))
+    await user.click(await screen.findByRole('button', { name: /Start over/ }))
+
+    expect(screen.getByRole('heading', { name: /Is this a loon\?/ })).toBeInTheDocument()
+  })
+
+  it('returns to the batch from a saved check opened meanwhile', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+    await uploadAndCheck(user)
+    await user.click(await screen.findByRole('button', { name: /Save result/ }))
+    await waitFor(() => expect(core.saved).toHaveLength(1))
+    await user.click(screen.getByRole('button', { name: /Check another/ }))
+
+    await uploadMany(user, photos('a.jpg', 'b.jpg'))
+    await screen.findByRole('heading', { name: '2 images to check' })
+    await user.click(historyNavButton())
+    await user.click(await screen.findByRole('button', { name: /1 loon · 94%/ }))
+    await user.click(await screen.findByRole('button', { name: /Check another/ }))
+
+    expect(screen.getByRole('heading', { name: '2 images to check' })).toBeInTheDocument()
+  })
+})
+
+describe('when a batch runs into trouble', () => {
+  async function checkBatchOf(names: string[]) {
+    const user = userEvent.setup()
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(
+      input,
+      names.map((name) => photo(name)),
+    )
+    await user.click(await screen.findByRole('button', { name: /Check \d+ images/ }))
+    return user
+  }
+
+  it('carries on past an image that cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const handler: Handler = (command, payload) => {
+      if (command === 'detect') {
+        const { meta } = unframe<{ fileName: string }>(payload as Uint8Array)
+        if (meta.fileName === 'bad.jpg') {
+          rejectWith({ code: 'DECODE_FAILED', message: 'Could not read it.', status: 422 })
+        }
+      }
+      return core.handler(command, payload)
+    }
+    await renderApp(handler)
+
+    const user = await checkBatchOf(['a.jpg', 'bad.jpg', 'c.jpg'])
+
+    expect(
+      await screen.findByRole('heading', { name: 'Loons in 2 of 3 images' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /bad.jpg Could not read it/ })).toBeDisabled()
+
+    // Checking again retries only what failed.
+    routeCore(core.handler)
+    await user.click(screen.getByRole('button', { name: /Check the remaining 1/ }))
+    expect(
+      await screen.findByRole('heading', { name: 'Loons in 3 of 3 images' }),
+    ).toBeInTheDocument()
+    expect(core.calls.filter((command) => command === 'detect')).toHaveLength(3)
+  })
+
+  it('stops at the first image when the model is unavailable', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await renderApp()
+    const unavailable = vi.fn<Handler>(
+      failingCore({
+        code: 'MODEL_UNAVAILABLE',
+        message: 'The detection model is not available. Please restart Gavia.',
+        status: 503,
+      }),
+    )
+    routeCore(unavailable)
+
+    await checkBatchOf(['a.jpg', 'b.jpg', 'c.jpg'])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/restart Gavia/)
+    expect(unavailable).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByRole('button', { name: /Waiting/ })).toHaveLength(2)
+  })
+
+  it('stops between images when asked', async () => {
+    let release = () => {}
+    const handler: Handler = async (command, payload) => {
+      if (command === 'detect') await new Promise<void>((resolve) => (release = resolve))
+      return core.handler(command, payload)
+    }
+    await renderApp(handler)
+
+    const user = await checkBatchOf(['a.jpg', 'b.jpg', 'c.jpg'])
+    await screen.findByRole('heading', { name: 'Checking 1 of 3' })
+    await user.click(screen.getByRole('button', { name: /Stop/ }))
+    expect(screen.getByRole('button', { name: /Stopping/ })).toBeDisabled()
+    release()
+
+    expect(
+      await screen.findByRole('heading', { name: 'Loons in 1 of 1 image' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Check the remaining 2/ })).toBeEnabled()
+    expect(core.calls.filter((command) => command === 'detect')).toHaveLength(1)
+  })
+
+  it('says how many results could not be saved', async () => {
+    await renderApp()
+    const user = await checkBatchOf(['a.jpg', 'b.jpg'])
+    await screen.findByRole('heading', { name: 'Loons in 2 of 2 images' })
+
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    routeCore(failingCore({ code: 'INTERNAL_ERROR', message: 'disk full', status: 500 }))
+    await user.click(screen.getByRole('button', { name: /Save 2 with loons/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '2 results could not be saved. Please try again.',
+    )
+    expect(screen.getByRole('button', { name: /Save 2 with loons/ })).toBeEnabled()
+  })
+
+  it('says so when one result could not be saved', async () => {
+    await renderApp()
+    const user = await checkBatchOf(['a.jpg', 'b.jpg'])
+    await screen.findByRole('heading', { name: 'Loons in 2 of 2 images' })
+
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    routeCore((command, payload) => {
+      if (command === 'save_result') {
+        const { meta } = unframe<StoredRow>(payload as Uint8Array)
+        if (meta.fileName === 'b.jpg')
+          rejectWith({ code: 'INTERNAL_ERROR', message: 'x', status: 500 })
+      }
+      return core.handler(command, payload)
+    })
+    await user.click(screen.getByRole('button', { name: /Save 2 with loons/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('1 result could not be saved.')
+    expect(core.saved.map((row) => row.fileName)).toEqual(['a.jpg'])
+  })
+
+  it('reports a failed save from an opened image back in the batch', async () => {
+    await renderApp()
+    const user = await checkBatchOf(['a.jpg', 'b.jpg'])
+    await user.click(await screen.findByRole('button', { name: /a.jpg 1 loon/ }))
+
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    routeCore(failingCore({ code: 'INTERNAL_ERROR', message: 'disk full', status: 500 }))
+    await user.click(screen.getByRole('button', { name: /Save result/ }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save result/ })).toBeEnabled())
+
+    await user.click(screen.getByRole('button', { name: /Back to all images/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent('This result could not be saved.')
   })
 })

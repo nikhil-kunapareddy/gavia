@@ -81,7 +81,7 @@ Today the model system understands exactly one kind of model: a detector that ou
 
 - **First public release** on all three systems.
 - **Testing on real Windows and Linux machines.** Reports from people who use them every day are the most useful thing right now.
-- **Survey counting** (feature 2): batch checking and CSV export.
+- **Survey counting** (feature 2): batch checking of up to 25 images or a zip is in; CSV export next.
 
 ## Next
 

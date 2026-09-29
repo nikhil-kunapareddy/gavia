@@ -4,6 +4,12 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-29
+
+### Added
+- Check up to 25 images at once. Pick or drop several photos, a zip of them, or both. Gavia checks them one at a time with a progress bar and a Stop button. Open any image to see its boxes, and save all the ones with loons in one go.
+- Files that can't be checked, such as a `notes.txt` inside a zip, are left out, and a note names them.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added
