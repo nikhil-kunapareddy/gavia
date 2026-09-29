@@ -29,7 +29,7 @@ Gavia does all its work on your own computer. It **works without internet**, it'
 ## How it works
 
 1. **Install Gavia** and open it. The detection model comes with the app, so there's nothing else to download.
-2. **Choose a photo.** JPEG, PNG and WebP all work, including the MPO files many cameras produce, up to 20 MB.
+2. **Choose photos.** Pick one, several, or a zip of them, up to 25 images at a time. JPEG, PNG and WebP all work, including the MPO files many cameras produce, up to 20 MB each.
 3. **Review and keep.** Check the boxes, give a thumbs up or down, and save the result to your history. You can also download a copy of the photo with the boxes drawn on it.
 
 ## Why people use it

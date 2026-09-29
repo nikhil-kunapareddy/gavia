@@ -296,6 +296,12 @@ summary:focus-visible {
   text-align: center;
   margin: 14px 0;
 }
+.notice-text {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  margin: 14px 0;
+}
 .preview-card {
   border: 1px solid var(--border);
   background: var(--surface);
@@ -680,6 +686,88 @@ summary:focus-visible {
 .history-card small {
   font-size: 11px;
   color: var(--text-subtle);
+}
+.batch-page .section-heading {
+  margin-bottom: 26px;
+}
+.batch-page .notice-text,
+.batch-page .error-text {
+  text-align: left;
+}
+.batch-progress {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-muted);
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.batch-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+.batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 22px;
+}
+.batch-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.batch-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 9px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+.batch-card:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.batch-card:disabled {
+  cursor: default;
+}
+.batch-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--surface-muted);
+}
+.batch-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.batch-card strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.batch-status.found {
+  color: var(--accent);
+}
+.batch-status.failed {
+  color: var(--danger-text);
 }
 .empty-history {
   border: 1px dashed var(--border-strong);

@@ -3,12 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CheckPage } from './CheckPage'
 
-const onFile = vi.fn()
+const onFiles = vi.fn()
 const onRemove = vi.fn()
 const onCheck = vi.fn()
 
 beforeEach(() => {
-  onFile.mockReset()
+  onFiles.mockReset()
   onRemove.mockReset()
   onCheck.mockReset()
 })
@@ -19,7 +19,7 @@ function renderPage(overrides = {}) {
     previewUrl: null as string | null,
     processing: false,
     error: '',
-    onFile,
+    onFiles,
     onRemove,
     onCheck,
     ...overrides,
@@ -92,5 +92,12 @@ describe('when something went wrong', () => {
   it('shows nothing when there is no error', () => {
     renderPage(chosenFile())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('when files were left out', () => {
+  it('says which', () => {
+    renderPage({ ...chosenFile(), notice: "Left out 1 file Gavia can't check: notes.txt." })
+    expect(screen.getByText(/Left out 1 file/)).toBeInTheDocument()
   })
 })

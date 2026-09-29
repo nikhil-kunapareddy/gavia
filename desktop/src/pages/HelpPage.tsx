@@ -1,5 +1,5 @@
 const STEPS = [
-  'Upload or take a photo.',
+  'Upload a photo, several, or a zip of up to 25.',
   'The system analyzes the image.',
   'If a loon is detected, we highlight it.',
   'Review the result with your own expertise.',

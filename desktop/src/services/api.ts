@@ -8,6 +8,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
+import { readBytes } from '../lib/imageFile'
 
 /** An error the core described, with the code the UI branches on. */
 export class ApiError extends Error {
@@ -91,15 +92,4 @@ export function unframe<T>(body: Uint8Array): { meta: T; bytes: Uint8Array } {
   const length = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(0, true)
   const meta = JSON.parse(new TextDecoder().decode(body.subarray(4, 4 + length))) as T
   return { meta, bytes: body.subarray(4 + length) }
-}
-
-/** `Blob.arrayBuffer`, with a FileReader fallback for jsdom, which lacks it. */
-function readBytes(file: Blob): Promise<ArrayBuffer> {
-  if (typeof file.arrayBuffer === 'function') return file.arrayBuffer()
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as ArrayBuffer)
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read the file.'))
-    reader.readAsArrayBuffer(file)
-  })
 }

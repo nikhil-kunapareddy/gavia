@@ -239,3 +239,28 @@ describe('the details disclosure', () => {
     expect(screen.getByText('Loons detected').nextElementSibling).toHaveTextContent('3')
   })
 })
+
+describe('as part of a batch', () => {
+  it.each([
+    ['with loons', [detection('a', 0.9)]],
+    ['without loons', []],
+  ])('goes back to the batch %s', async (_, detections) => {
+    const user = userEvent.setup()
+    const onBack = vi.fn()
+    render(
+      <DetectionResult
+        result={makeResult(detections)}
+        onCheckAnother={onBack}
+        onSave={vi.fn()}
+        saved={false}
+        backLabel="Back to all images"
+      />,
+    )
+
+    const [back] = screen.getAllByRole('button', { name: /Back to all images/ })
+    await user.click(back)
+
+    expect(onBack).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: /another image/ })).not.toBeInTheDocument()
+  })
+})
