@@ -10,6 +10,7 @@
  */
 
 import { ApiError, unframe, type Args } from '../services/api'
+import type { CallResult, CallWindow } from '../types/calls'
 import type { DetectionResult } from '../types/detection'
 import type { AppSettings } from '../types/settings'
 
@@ -71,7 +72,7 @@ function settingsNow(): AppSettings {
 
 function body(args: Args | undefined): Uint8Array {
   if (args instanceof Uint8Array) return args
-  throw new ApiError('INVALID_REQUEST', 'Expected the image as a binary body.', 422)
+  throw new ApiError('INVALID_REQUEST', 'Expected the file as a binary body.', 422)
 }
 
 function sampleDetections(id: string) {
@@ -84,6 +85,26 @@ function sampleDetections(id: string) {
     confidence: 0.55 + ((seed + index * 17) % 40) / 100,
     boundingBox: { x: 12 + index * 38, y: 30 + (index % 2) * 12, width: 26, height: 22 },
   }))
+}
+
+/**
+ * Made-up windows for a recording: its length guessed from its size as if it
+ * were a 128 kbps MP3, and a couple of calls in it so the result has something
+ * to show.
+ */
+function sampleWindows(bytes: number): CallWindow[] {
+  const duration = Math.min(600, Math.max(4, bytes / 16_000))
+  const windows: CallWindow[] = []
+  for (let start = 0; start < duration; start += 3) {
+    const index = start / 3
+    const calling = index % 7 === 2 || index % 7 === 3
+    windows.push({
+      start,
+      end: Math.min(start + 3, duration),
+      confidence: calling ? 0.7 + (index % 5) / 20 : 0.05 + (index % 4) / 20,
+    })
+  }
+  return windows
 }
 
 export async function previewCall<T>(command: string, args?: Args): Promise<T> {
@@ -111,6 +132,25 @@ export async function previewCall<T>(command: string, args?: Args): Promise<T> {
         modelName: 'Loonet 1.0 (browser preview)',
         tilesProcessed: 1,
         saved: false,
+      }
+      return result as T
+    }
+    case 'detect_calls': {
+      const { meta, bytes } = unframe<DetectMeta>(body(args))
+      const windows = sampleWindows(bytes.length)
+      const result: CallResult = {
+        id: crypto.randomUUID().replace(/-/g, ''),
+        fileName: meta.fileName ?? 'recording',
+        fileSize: bytes.length,
+        duration: windows.at(-1)?.end ?? 0,
+        sampleRate: 48000,
+        channels: 1,
+        windows,
+        threshold: 0.5,
+        label: 'Loon call',
+        modelName: 'looncall 1.0 (browser preview)',
+        processingTime: 0.35,
+        timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00'),
       }
       return result as T
     }

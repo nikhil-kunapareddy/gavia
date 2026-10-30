@@ -13,6 +13,7 @@ use std::sync::{Arc, Condvar, Mutex, RwLock, RwLockReadGuard};
 
 use serde::{Deserialize, Serialize};
 
+use crate::calls::{CallDetector, ListenError};
 use crate::config::Config;
 use crate::detection::loader;
 use crate::detection::{DetectError, DetectOptions, Detector};
@@ -27,6 +28,17 @@ use crate::storage::{
 /// Content types the uploader may claim. The bytes are sniffed regardless;
 /// this only turns away an obviously wrong file with a clearer message.
 const ACCEPTED_CONTENT_TYPES: [&str; 3] = ["image/jpeg", "image/png", "image/webp"];
+
+/// What a recording may claim to be. Bytes are sniffed regardless; `video/`
+/// is here because the audio track of an MP4 or MOV (drone footage, say) is
+/// as good a recording as any.
+fn plausible_recording(content_type: &str) -> bool {
+    content_type.starts_with("audio/")
+        || matches!(
+            content_type,
+            "video/mp4" | "video/quicktime" | "application/ogg"
+        )
+}
 
 /// Position and size as percentages of the image, 0-100, so the overlay does
 /// not care what size the image is rendered at.
@@ -144,6 +156,49 @@ impl SaveRequest {
     }
 }
 
+/// Metadata that travels with the bytes of a `detect_calls` call.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallRequest {
+    pub file_name: Option<String>,
+    pub content_type: Option<String>,
+}
+
+/// One 3 s window of a recording.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallWindow {
+    /// Seconds into the recording.
+    pub start: f64,
+    pub end: f64,
+    /// P(loon call), 0-1.
+    pub confidence: f64,
+}
+
+/// What listening to one recording found. Like a photo's result it is not
+/// stored anywhere; the UI plays the reviewer's own copy of the file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallResult {
+    pub id: String,
+    pub file_name: String,
+    pub file_size: u64,
+    /// Seconds of audio.
+    pub duration: f64,
+    pub sample_rate: u32,
+    pub channels: u16,
+    /// Every window in order, heard or not, so the UI can draw the whole
+    /// recording; the ones at or above `threshold` are calls.
+    pub windows: Vec<CallWindow>,
+    pub threshold: f64,
+    /// What a window over the threshold is called, e.g. `Loon call`.
+    pub label: String,
+    pub model_name: String,
+    /// Seconds spent decoding and listening.
+    pub processing_time: f64,
+    pub timestamp: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelResponse {
@@ -212,13 +267,38 @@ pub struct SettingsView {
 pub struct Library {
     pub settings_file: PathBuf,
     pub bundled_models: PathBuf,
+    /// The loon call model's `.onnx`, with its `.json` beside it.
+    pub call_model: PathBuf,
     pub default_data_dir: PathBuf,
     /// Set when `GAVIA_DATA_DIR` overrides the storage location.
     pub env_data_dir: Option<PathBuf>,
 }
 
+/// The call model loads on first use rather than at startup: most sessions
+/// never open a recording, and a loaded session costs memory.
+enum CallSlot {
+    NotLoaded,
+    Ready(Arc<CallDetector>),
+    Failed,
+}
+
+impl CallSlot {
+    /// A model that fails to load leaves listening unavailable until restart,
+    /// as the image model does; photos and history are unaffected.
+    fn loaded(outcome: Result<CallDetector, String>) -> Self {
+        match outcome {
+            Ok(detector) => CallSlot::Ready(Arc::new(detector)),
+            Err(error) => {
+                log::error!("call model failed to load: {error}");
+                CallSlot::Failed
+            }
+        }
+    }
+}
+
 pub struct Service {
     model: ModelSlot,
+    calls: Mutex<CallSlot>,
     /// Behind a lock so the storage location can move while the app runs:
     /// every operation holds a read guard, the move holds the write guard.
     repository: RwLock<Repository>,
@@ -234,6 +314,7 @@ impl Service {
                 state: Mutex::new(Slot::Loading),
                 ready: Condvar::new(),
             },
+            calls: Mutex::new(CallSlot::NotLoaded),
             repository: RwLock::new(repository),
             library: None,
             settings: Mutex::new(Settings::default()),
@@ -489,6 +570,35 @@ impl Service {
         }
     }
 
+    /// Hand over a loaded (or failed) call model, as the first `detect_calls`
+    /// would otherwise load it. Tests without a [`Library`] use this.
+    pub fn set_call_model(&self, loaded: Result<CallDetector, String>) {
+        *self.lock_calls() = CallSlot::loaded(loaded);
+    }
+
+    fn lock_calls(&self) -> std::sync::MutexGuard<'_, CallSlot> {
+        self.calls.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// The call model, loaded now if this is the first recording. Holding the
+    /// lock while it loads makes a second early request wait, not load twice.
+    fn call_detector(&self) -> Result<Arc<CallDetector>, ApiError> {
+        let mut slot = self.lock_calls();
+        if matches!(*slot, CallSlot::NotLoaded) {
+            let loaded = match &self.library {
+                Some(library) => {
+                    CallDetector::load(&library.call_model, self.config.inference_threads)
+                }
+                None => Err("no call model without a library".into()),
+            };
+            *slot = CallSlot::loaded(loaded);
+        }
+        match &*slot {
+            CallSlot::Ready(detector) => Ok(detector.clone()),
+            _ => Err(ApiError::call_model_unavailable()),
+        }
+    }
+
     pub fn model_info(&self) -> Result<ModelResponse, ApiError> {
         let detector = self.detector()?;
         let info = detector.info();
@@ -583,6 +693,80 @@ impl Service {
             model_name: detector.info().name.clone(),
             tiles_processed: outcome.tiles_processed as u32,
             saved: false,
+            id,
+        })
+    }
+
+    /// Listen for loon calls in one recording: a probability for every 3 s
+    /// window. Nothing is persisted, as with photos.
+    pub fn detect_calls(
+        &self,
+        request: &CallRequest,
+        bytes: &[u8],
+    ) -> Result<CallResult, ApiError> {
+        if let Some(content_type) = request.content_type.as_deref().filter(|c| !c.is_empty())
+            && !plausible_recording(content_type)
+        {
+            return Err(ApiError::unsupported_format(format!(
+                "{content_type} is not a recording. Upload a WAV, MP3, FLAC, OGG or M4A file."
+            )));
+        }
+        if bytes.len() as u64 > self.config.max_audio_bytes {
+            return Err(ApiError::recording_too_large(format!(
+                "This recording is too large. Please choose a file smaller than {} MB.",
+                self.config.max_audio_bytes / (1024 * 1024)
+            )));
+        }
+        crate::calls::decode::sniff(bytes)?;
+
+        let detector = self.call_detector()?;
+        let heard = detector
+            .listen(bytes, self.config.max_audio_seconds)
+            .map_err(|e| match e {
+                ListenError::Audio(e) => ApiError::from(e),
+                ListenError::Inference(e) => ApiError::internal(e),
+            })?;
+        let info = detector.info();
+        let id = uuid::Uuid::new_v4().simple().to_string();
+        let calls = heard
+            .windows
+            .iter()
+            .filter(|w| w.probability >= info.threshold)
+            .count();
+        log::info!(
+            "calls {id}: {calls} of {} window(s), {:.1}s of audio at {} Hz, {:.1}ms",
+            heard.windows.len(),
+            heard.duration_seconds,
+            heard.sample_rate,
+            heard.processing_seconds * 1000.0,
+        );
+
+        Ok(CallResult {
+            windows: heard
+                .windows
+                .iter()
+                .map(|w| CallWindow {
+                    start: w.start,
+                    end: w.end,
+                    confidence: w.probability,
+                })
+                .collect(),
+            file_name: request
+                .file_name
+                .clone()
+                .filter(|n| !n.is_empty())
+                .unwrap_or_else(|| "recording".into()),
+            file_size: bytes.len() as u64,
+            duration: heard.duration_seconds,
+            sample_rate: heard.sample_rate,
+            channels: heard.channels,
+            threshold: info.threshold,
+            label: info.label.clone(),
+            model_name: info.name.clone(),
+            processing_time: (heard.processing_seconds * 1000.0).round() / 1000.0,
+            timestamp: chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S+00:00")
+                .to_string(),
             id,
         })
     }
@@ -871,6 +1055,22 @@ mod tests {
             },
         }];
         assert_eq!(r.problems().len(), 7);
+    }
+
+    #[test]
+    fn recordings_may_claim_any_audio_type_or_a_video() {
+        for ok in [
+            "audio/mpeg",
+            "audio/x-m4a",
+            "audio/wav",
+            "video/mp4",
+            "application/ogg",
+        ] {
+            assert!(plausible_recording(ok), "{ok}");
+        }
+        for no in ["image/jpeg", "text/plain", "application/zip", "video/webm"] {
+            assert!(!plausible_recording(no), "{no}");
+        }
     }
 
     #[test]

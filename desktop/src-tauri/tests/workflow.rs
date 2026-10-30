@@ -6,7 +6,7 @@ mod common;
 
 use common::*;
 use gavia_lib::config::Config;
-use gavia_lib::service::{DetectRequest, SaveRequest, Service};
+use gavia_lib::service::{CallRequest, DetectRequest, SaveRequest, Service};
 use gavia_lib::storage;
 
 fn service(dir: &std::path::Path) -> Service {
@@ -263,4 +263,147 @@ fn unknown_asset_paths_are_not_found() {
     ] {
         assert_eq!(service.asset(path).unwrap_err().code, "NOT_FOUND", "{path}");
     }
+}
+
+fn call_request(name: &str, content_type: &str) -> CallRequest {
+    CallRequest {
+        file_name: Some(name.into()),
+        content_type: Some(content_type.into()),
+    }
+}
+
+fn listening_service(dir: &std::path::Path) -> Service {
+    let service = Service::new(storage::open(dir).unwrap(), Config::default());
+    service.set_call_model(gavia_lib::calls::CallDetector::load(
+        &call_model_path(),
+        Some(2),
+    ));
+    service
+}
+
+#[test]
+fn listen_to_a_recording_and_write_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let service = listening_service(dir.path());
+    let bytes = audio_fixture("loon.mp3");
+
+    let heard = service
+        .detect_calls(&call_request("lake.mp3", "audio/mpeg"), &bytes)
+        .unwrap();
+    assert_eq!(heard.file_name, "lake.mp3");
+    assert_eq!(heard.file_size, bytes.len() as u64);
+    assert_eq!((heard.sample_rate, heard.channels), (48_000, 1));
+    assert_eq!(heard.label, "Loon call");
+    assert_eq!(heard.model_name, "looncall 1.0");
+    assert_eq!(heard.threshold, 0.5);
+    let starts: Vec<f64> = heard.windows.iter().map(|w| w.start).collect();
+    assert_eq!(starts, vec![0.0, 3.0, 6.0]);
+    assert!((heard.windows[2].end - heard.duration).abs() < 1e-9);
+    assert!(
+        heard
+            .windows
+            .iter()
+            .all(|w| w.confidence >= heard.threshold)
+    );
+    assert_eq!(heard.id.len(), 32);
+
+    // The wire shape is camelCase, as src/types/calls.ts expects.
+    let wire = serde_json::to_value(&heard).unwrap();
+    for key in [
+        "fileName",
+        "fileSize",
+        "sampleRate",
+        "modelName",
+        "processingTime",
+    ] {
+        assert!(wire.get(key).is_some(), "{key}");
+    }
+    // Listening, like checking a photo, keeps nothing.
+    assert_eq!(service.list(None, None).unwrap().len(), 0);
+}
+
+#[test]
+fn recordings_the_ui_should_explain_are_refused_with_their_codes() {
+    let dir = tempfile::tempdir().unwrap();
+    let service = listening_service(dir.path());
+    let cases = [
+        (
+            call_request("photo.jpg", "image/jpeg"),
+            b"\xFF\xD8\xFF".to_vec(),
+            "UNSUPPORTED_FORMAT",
+        ),
+        (
+            call_request("notes.mp3", "audio/mpeg"),
+            b"just some text".to_vec(),
+            "UNSUPPORTED_FORMAT",
+        ),
+        (
+            call_request("empty.wav", ""),
+            Vec::new(),
+            "UNSUPPORTED_FORMAT",
+        ),
+        (
+            call_request("cut.flac", "audio/flac"),
+            b"fLaC\0\0\0\x22".to_vec(),
+            "DECODE_FAILED",
+        ),
+    ];
+    for (request, bytes, code) in cases {
+        let error = service.detect_calls(&request, &bytes).unwrap_err();
+        assert_eq!(
+            error.code, code,
+            "{:?}: {}",
+            request.file_name, error.message
+        );
+    }
+
+    let config = Config {
+        max_audio_bytes: 1024,
+        ..Config::default()
+    };
+    let small = Service::new(storage::open(dir.path()).unwrap(), config);
+    let error = small
+        .detect_calls(
+            &call_request("long.mp3", "audio/mpeg"),
+            &audio_fixture("loon.mp3"),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "RECORDING_TOO_LARGE");
+
+    let config = Config {
+        max_audio_seconds: 2.0,
+        ..Config::default()
+    };
+    let short = Service::new(storage::open(dir.path()).unwrap(), config);
+    short.set_call_model(gavia_lib::calls::CallDetector::load(
+        &call_model_path(),
+        Some(1),
+    ));
+    let error = short
+        .detect_calls(
+            &call_request("long.mp3", "audio/mpeg"),
+            &audio_fixture("loon.mp3"),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "RECORDING_TOO_LARGE");
+}
+
+#[test]
+fn without_a_call_model_photos_still_work() {
+    let dir = tempfile::tempdir().unwrap();
+    let service = service(dir.path());
+    service.set_call_model(Err("missing".into()));
+    let error = service
+        .detect_calls(
+            &call_request("lake.mp3", "audio/mpeg"),
+            &audio_fixture("loon.mp3"),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "MODEL_UNAVAILABLE");
+    assert!(error.message.contains("call"));
+    assert!(
+        service
+            .detect(&detect_request("lake.jpg"), &jpeg(640, 480))
+            .is_ok()
+    );
 }

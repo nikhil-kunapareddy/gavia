@@ -1,1 +1,1 @@
-export type Page = 'check' | 'results' | 'settings' | 'help'
+export type Page = 'check' | 'audio' | 'results' | 'settings' | 'help'
