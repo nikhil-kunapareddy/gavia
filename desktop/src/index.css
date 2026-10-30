@@ -1038,6 +1038,113 @@ summary:focus-visible {
     opacity: 0.3;
   }
 }
+/* Listening for loon calls */
+.audio-preview-top {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 7px 7px 13px;
+}
+.audio-preview-top .upload-mark {
+  margin: 0;
+  flex: none;
+}
+.audio-preview-name {
+  flex: 1;
+  min-width: 0;
+}
+.audio-remove {
+  border-radius: 50%;
+  padding: 8px;
+  flex: none;
+}
+.audio-player {
+  display: block;
+  width: 100%;
+}
+.call-timeline {
+  position: relative;
+  height: 112px;
+  margin-top: 14px;
+  background: var(--surface-muted);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.call-bar {
+  position: absolute;
+  bottom: 0;
+  background: var(--border-strong);
+  border-left: 1px solid var(--surface-muted);
+  transition: background 0.18s;
+}
+.call-bar.heard {
+  background: var(--brand-red);
+}
+.call-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  pointer-events: none;
+}
+.call-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-subtle);
+  font-size: 10px;
+  margin-top: 6px;
+}
+.call-list {
+  list-style: none;
+  margin: 0;
+  padding: 7px 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+}
+.call-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.call-row:disabled {
+  cursor: default;
+}
+.call-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.call-row b {
+  background: var(--danger-soft);
+  color: var(--text);
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 1px;
+  font-size: 10px;
+}
+.call-row:hover:not(:disabled) span {
+  color: var(--accent);
+}
+.call-row strong {
+  color: var(--text);
+}
+
 @media (max-width: 680px) {
   .settings-section {
     grid-template-columns: 1fr;

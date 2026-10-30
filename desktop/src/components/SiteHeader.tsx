@@ -35,6 +35,9 @@ export function SiteHeader({
           <button className={navClass(page === 'check')} onClick={() => onNavigate('check')}>
             Check an image
           </button>
+          <button className={navClass(page === 'audio')} onClick={() => onNavigate('audio')}>
+            Check an audio
+          </button>
           <button className={navClass(page === 'results')} onClick={() => onNavigate('results')}>
             <History size={16} /> Previous checks
           </button>

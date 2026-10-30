@@ -1,0 +1,21 @@
+# `cargo audit` exceptions. Each one says why it can't reach a user and when
+# to remove it; anything not listed here still fails CI.
+
+[advisories]
+ignore = [
+    # zip 4.x, through tauri-plugin-updater 2.12 (Windows only), which pins
+    # zip 4. All three are about `ZipArchive::extract` writing symlinks or
+    # permission bits outside the destination; they need ≥ 9.0.0.
+    #
+    # Unreachable in Gavia: the updater verifies an update's minisign
+    # signature against `plugins.updater.pubkey` before installing it, and
+    # Gavia's Windows update is the signed NSIS `-setup.exe`
+    # (`createUpdaterArtifacts: true`, see scripts/updater-manifest.mjs), never
+    # a zip, so `extract_zip` is not called.
+    #
+    # Remove these once tauri-plugin-updater depends on zip ≥ 9
+    # (`cargo tree -i zip --target all`).
+    "RUSTSEC-2026-0367", # SUID/SGID bits preserved on extraction
+    "RUSTSEC-2026-0368", # extract creates symlinks pointing outside the destination
+    "RUSTSEC-2026-0369", # extract applies Unix permissions through symlinks
+]

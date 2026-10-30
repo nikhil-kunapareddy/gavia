@@ -32,6 +32,8 @@ Gavia does all its work on your own computer. It **works without internet**, it'
 2. **Choose photos.** Pick one, several, or a zip of them, up to 25 images at a time. JPEG, PNG and WebP all work, including the MPO files many cameras produce, up to 20 MB each.
 3. **Review and keep.** Check the boxes, give a thumbs up or down, and save the result to your history. You can also download a copy of the photo with the boxes drawn on it.
 
+**Recordings too.** **Check an audio** listens to a recording (WAV, MP3, FLAC, OGG, M4A, or a video's sound, up to 100 MB) and marks every three-second stretch where a loon calls. Click a call to hear it, or download the whole timeline as a CSV.
+
 ## Why people use it
 
 |  | Gavia | Uploading to a cloud service |
@@ -41,7 +43,7 @@ Gavia does all its work on your own computer. It **works without internet**, it'
 | **Cost** | Free | Often per image or per month |
 | **Account** | Not needed | Usually required |
 
-- **💻 Runs on an ordinary laptop.** No GPU, no server, a 43 MB download.
+- **💻 Runs on an ordinary laptop.** No GPU, no server, a download of about 70 MB with both models.
 - **🎯 Measured.** On the `loonnet_v1` validation photos, Gavia finds 88% of labelled loons, and 91% of the boxes it draws are real loons (details below).
 - **🗂️ Keeps a record.** The original photo is saved byte-for-byte next to the boxes, exactly as the reviewer saw them.
 - **🧭 Honest about uncertainty.** Every box shows a confidence score, so you can see which ones deserve a closer look.
@@ -173,6 +175,8 @@ Start with the **[contributing guide](CONTRIBUTING.md)**. It explains how to set
 ## Licence
 
 AGPL-3.0. The detector is derived from Ultralytics YOLO11, which is AGPL-3.0, and that obligation carries to anything distributed with these weights. See [LICENSE](LICENSE).
+
+The loon call model contains [BirdNET 2.4](https://github.com/birdnet-team/BirdNET-Analyzer), which is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) by the K. Lisa Yang Center for Conservation Bioacoustics, so it may be used for non-commercial purposes only. Its provenance and licence are in `desktop/src-tauri/resources/calls/looncall_v1.json`.
 
 ---
 

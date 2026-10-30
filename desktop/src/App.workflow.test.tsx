@@ -68,9 +68,36 @@ function fakeCore({
     }
   }
 
+  /** Shaped like `CallResult` in service.rs: every window, heard or not. */
+  function callResult(id: string, fileName: string, fileSize: number) {
+    return {
+      id,
+      fileName,
+      fileSize,
+      duration: 9.6,
+      sampleRate: 48000,
+      channels: 1,
+      windows: [
+        { start: 0, end: 3, confidence: 0.12 },
+        { start: 3, end: 6, confidence: 0.91 },
+        { start: 6, end: 9, confidence: 0.87 },
+        { start: 9, end: 9.6, confidence: 0.2 },
+      ],
+      threshold: 0.5,
+      label: 'Loon call',
+      modelName: 'looncall 1.0',
+      processingTime: 0.4,
+      timestamp: '2026-10-30T10:00:00+00:00',
+    }
+  }
+
   const handler = vi.fn<Handler>((command, payload) => {
     calls.push(command)
     switch (command) {
+      case 'detect_calls': {
+        const { meta, bytes } = unframe<{ fileName: string }>(payload as Uint8Array)
+        return callResult(`c${nextId++}`, meta.fileName, bytes.length)
+      }
       case 'detect': {
         const { meta } = unframe<{ fileName: string }>(payload as Uint8Array)
         return result(`r${nextId++}`, meta.fileName, loonsIn(meta.fileName), false)
@@ -648,5 +675,81 @@ describe('when a batch runs into trouble', () => {
 
     await user.click(screen.getByRole('button', { name: /Back to all images/ }))
     expect(screen.getByRole('alert')).toHaveTextContent('This result could not be saved.')
+  })
+})
+
+describe('listening for loon calls', () => {
+  function recording(name = 'lake.mp3') {
+    return new File(['audio-bytes'], name, { type: 'audio/mpeg' })
+  }
+
+  async function uploadAndListen(user: ReturnType<typeof userEvent.setup>, file = recording()) {
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('button', { name: 'Check an audio' }),
+    )
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, file)
+    await user.click(await screen.findByRole('button', { name: /Listen for loon calls/ }))
+  }
+
+  it('carries a recording from upload to the calls in it, keeping nothing', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await uploadAndListen(user)
+
+    // Two consecutive windows over the threshold are one call.
+    expect(await screen.findByRole('heading', { name: '1 loon call heard' })).toBeInTheDocument()
+    expect(screen.getByText(/heard in 2 of 4 three-second stretches/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Play call 1, 0:03 to 0:09, 91%/ })).toBeEnabled()
+    expect(core.calls).toContain('detect_calls')
+    expect(core.calls).not.toContain('save_result')
+
+    await user.click(screen.getByRole('button', { name: /Check another recording/ }))
+    expect(await screen.findByText(/Drop a recording here/)).toBeInTheDocument()
+  })
+
+  it('keeps photos and recordings apart', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await uploadAndListen(user)
+    await screen.findByRole('heading', { name: '1 loon call heard' })
+
+    // The photo page is untouched, and the result is still there on return.
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('button', { name: 'Check an image' }),
+    )
+    expect(await screen.findByText(/Drop images or a zip here/)).toBeInTheDocument()
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('button', { name: 'Check an audio' }),
+    )
+    expect(screen.getByRole('heading', { name: '1 loon call heard' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['DECODE_FAILED', 'This recording could not be read (end of stream).'],
+    ['RECORDING_TOO_LARGE', 'This recording is longer than 4 hours.'],
+    ['MODEL_UNAVAILABLE', 'The loon call model is not available. Please restart Gavia.'],
+  ])('shows what the core says when it answers %s', async (code, message) => {
+    const user = userEvent.setup()
+    await renderApp()
+    routeCore(failingCore({ code, message, status: 422 }))
+
+    await uploadAndListen(user)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+  })
+
+  it('does not show a raw internal error', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+    routeCore(failingCore({ code: 'INTERNAL_ERROR', message: 'ort: shape mismatch', status: 500 }))
+
+    await uploadAndListen(user)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong while listening to this recording.',
+    )
   })
 })

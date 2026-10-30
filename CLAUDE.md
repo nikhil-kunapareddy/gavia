@@ -5,9 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Gavia finds loons in field photographs: open an image, get bounding boxes with
-confidence scores, keep the ones worth keeping. One Tauri 2 app for macOS
-(Apple Silicon), Windows and Linux: a React 18 + TypeScript interface (Vite,
-Tailwind) over a Rust core that runs YOLO11s through ONNX Runtime (`ort`).
+confidence scores, keep the ones worth keeping. It also listens for loon calls
+in recordings (**Check an audio**): a probability for every 3 s window. One
+Tauri 2 app for macOS (Apple Silicon), Windows and Linux: a React 18 +
+TypeScript interface (Vite, Tailwind) over a Rust core that runs YOLO11s (and
+BirdNET for calls) through ONNX Runtime (`ort`).
 Offline except for an update check at startup, which Settings can turn off.
 There was a Python/FastAPI backend until the Rust port; it is gone, and `src-tauri/tests/fixtures/python_reference.json` is what remains of it.
 
@@ -36,10 +38,17 @@ cargo test                          # unit + integration; real model, ~60s in de
 cargo test --lib                    # unit only, ~3s
 cargo test --test workflow          # Service end to end: detect, save, list, assets
 cargo test --test parity            # vs Python reference; needs the loonnet dataset
+cargo test --test calls             # call model on every audio container, vs Python
+cargo test --test call_parity       # call model on the looncall val split; needs loonet's audio
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 cargo run --release --example evaluate -- --split ~/Documents/loonet/data/annotated/loonnet_v1/val.txt
 ```
+
+The call model is rebuilt from loonet by two Python scripts in `desktop/scripts/`
+(each docstring says which environment it needs): `export_looncall.py` writes
+`resources/calls/looncall_v1.{onnx,json}` and checks it against TFLite;
+`looncall_reference.py` rewrites `tests/fixtures/looncall_reference.json`.
 
 `tauri::generate_context!` embeds `../dist`, so `cargo` commands need a built
 frontend (`npx vite build`) on a fresh checkout. `npm run app` builds it for you.
@@ -99,6 +108,21 @@ the user's original post-EXIF dimensions, not the reduced decode's.
 with `imageUrl: ""` and writes nothing; `save_result` commits it with the image
 re-sent from the UI. No staging area means nothing to expire after a crash, and
 what is stored is exactly what the reviewer looked at.
+
+**Loon calls are `calls/`, pure like `detection/`.** `detect_calls` takes a
+framed recording and returns `CallResult`: every 3 s window with its
+P(loon call), plus the threshold; the UI merges consecutive calls. The model is
+looncall (loonet): BirdNET 2.4 up to its 1024-d embedding plus a logistic
+regression, one ONNX graph from `(batch, 144000)` audio at 48 kHz to `p_loon`.
+`decode` streams packets through Symphonia and downmixes as NumPy's `f32` mean
+does, so a 4-hour file never sits in memory as samples; `windows` cuts
+`round(3 s × rate)` source samples back to back and pads the last; `resample`
+is `scipy.signal.resample` (per-window FFT), which is how `birdnet` reached
+48 kHz. MP3 is gapless-trimmed as mpg123 does; MP4 priming is skipped from the
+edit list by hand (`mp4_priming`), because Symphonia 0.5 ignores it and
+ffmpeg didn't — without it M4A drifted 0.054 from Python. The call model loads
+on first use, not at startup, and lives in `resources/calls/`, not `models/`,
+so it is never offered as a photo model. Recordings are not stored.
 
 **Tiling is off by default and should stay off unless measured.** 64% of
 labelled loons are larger than a 640px tile, so tiles see fragments and
@@ -186,8 +210,10 @@ presentational. No router — `page` is a `Page` state value.
   several compare against `tests/fixtures/python_reference.json` and the tiny
   images in `tests/fixtures/images/` (EXIF orientations 1–8, MPO, PNG, WebP).
 - **Rust integration** (`tests/`) — `model.rs` is the only thing that catches a
-  bad model export; `workflow.rs` is the contract `src/services/` relies on;
-  `parity.rs` skips unless the loonnet val split is at the default path or
+  bad model export (`calls.rs` for the call model, against Python numbers for
+  one clip per container in `tests/fixtures/audio/`); `call_parity.rs` skips
+  like `parity.rs` unless loonet's `data/looncall_raw` is there; `workflow.rs`
+  is the contract `src/services/` relies on; `parity.rs` skips unless the loonnet val split is at the default path or
   `GAVIA_VAL_SPLIT`, so it never runs in CI.
 - **Frontend unit** — components and services in jsdom.
 - **`App.workflow.test.tsx`** — mocks only IPC (`mockIPC`), so the real service
@@ -254,6 +280,11 @@ may bypass the approval in pull-request mode).
 - Dependencies build without debug info (`[profile.dev.package."*"]`); a debug
   build of Tauri plus ORT is several GB otherwise.
 - The model is AGPL-3.0 (inherited from Ultralytics YOLO11) and so is this repo.
+- The call model contains BirdNET 2.4, which is **CC BY-NC-SA 4.0
+  (non-commercial)**; its `.json` says so. BirdNET's spectrogram takes the real
+  part of an RFFT, which tf2onnx can't convert; `export_looncall.py` swaps in
+  a cosine-matrix MatMul folded into the mel filterbank. Re-export with that
+  script, never by hand.
 
 ## Model
 

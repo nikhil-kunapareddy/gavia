@@ -18,13 +18,17 @@
 *.mp4 binary
 *.mov binary
 *.wav binary
+*.mp3 binary
+*.flac binary
+*.ogg binary
+*.m4a binary
 *.ttf binary
 *.otf binary
 *.woff binary
 *.woff2 binary
 
 # Model weights. Committed, not LFS: an offline desktop app has to ship with
-# its model, and 36MB is a one-time clone cost.
+# its models, and 36MB (photos) plus 26MB (calls) is a one-time clone cost.
 *.onnx binary
 
 # PowerShell scripts are the one exception.

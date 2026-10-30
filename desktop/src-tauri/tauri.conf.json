@@ -26,6 +26,7 @@
       "csp": {
         "default-src": "'self'",
         "img-src": "'self' blob: data: gavia: http://gavia.localhost",
+        "media-src": "'self' blob:",
         "style-src": "'self' 'unsafe-inline'",
         "connect-src": "ipc: http://ipc.localhost gavia: http://gavia.localhost"
       }
@@ -42,7 +43,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "resources/models/": "models/"
+      "resources/models/": "models/",
+      "resources/calls/": "calls/"
     },
     "category": "Utility",
     "shortDescription": "Find loons in field photographs, offline.",

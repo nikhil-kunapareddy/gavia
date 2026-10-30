@@ -18,6 +18,12 @@ pub struct Config {
     pub tiles: TileSettings,
     /// Matches the uploader's own limit, so both give the same answer.
     pub max_upload_bytes: u64,
+    /// The same, for recordings: the file crosses IPC whole, so this bounds
+    /// memory, not listening time.
+    pub max_audio_bytes: u64,
+    /// Longer recordings are refused before decoding; a compressed file under
+    /// the byte limit can still hold many hours.
+    pub max_audio_seconds: f64,
 }
 
 impl Default for Config {
@@ -28,6 +34,8 @@ impl Default for Config {
             iou_threshold: None,
             tiles: TileSettings::default(),
             max_upload_bytes: 20 * 1024 * 1024,
+            max_audio_bytes: 100 * 1024 * 1024,
+            max_audio_seconds: 4.0 * 3600.0,
         }
     }
 }
@@ -89,6 +97,8 @@ impl Config {
                     .unwrap_or(defaults.tiles.max_tiles),
             },
             max_upload_bytes: defaults.max_upload_bytes,
+            max_audio_bytes: defaults.max_audio_bytes,
+            max_audio_seconds: defaults.max_audio_seconds,
         }
     }
 }
@@ -112,6 +122,7 @@ mod tests {
         assert_eq!(config, Config::default());
         assert!(!config.tiles.enabled, "tiling stays off unless measured");
         assert_eq!(config.max_upload_bytes, 20 * 1024 * 1024);
+        assert_eq!(config.max_audio_bytes, 100 * 1024 * 1024);
     }
 
     #[test]

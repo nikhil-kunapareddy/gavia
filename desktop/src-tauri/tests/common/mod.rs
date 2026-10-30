@@ -6,6 +6,7 @@ use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
+use gavia_lib::calls::CallDetector;
 use gavia_lib::config::Config;
 use gavia_lib::detection::Detector;
 use gavia_lib::detection::preprocess::TileSettings;
@@ -30,6 +31,29 @@ pub fn detector() -> Arc<Detector> {
 
 pub fn fresh_detector(config: &Config) -> Detector {
     Detector::load(&model_path(), config.inference_threads, config.tiles).expect("model loads")
+}
+
+pub fn call_model_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/calls/looncall_v1.onnx")
+}
+
+/// One real call detector per test binary.
+pub fn call_detector() -> Arc<CallDetector> {
+    static DETECTOR: OnceLock<Arc<CallDetector>> = OnceLock::new();
+    DETECTOR
+        .get_or_init(|| {
+            Arc::new(CallDetector::load(&call_model_path(), Some(2)).expect("call model loads"))
+        })
+        .clone()
+}
+
+pub fn audio_fixture(name: &str) -> Vec<u8> {
+    std::fs::read(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/audio")
+            .join(name),
+    )
+    .expect("audio fixture")
 }
 
 pub fn encode(image: DynamicImage, format: ImageFormat) -> Vec<u8> {
