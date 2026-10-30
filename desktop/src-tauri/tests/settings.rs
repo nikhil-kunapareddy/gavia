@@ -37,6 +37,7 @@ fn library(root: &Path) -> Library {
     Library {
         settings_file: root.join("config/settings.json"),
         bundled_models: Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/models"),
+        call_model: Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/calls/looncall_v1.onnx"),
         default_data_dir: root.join("default"),
         env_data_dir: None,
     }
@@ -256,4 +257,39 @@ fn an_unknown_model_is_refused_and_a_vanished_one_falls_back() {
     let view = reopened.settings().unwrap();
     assert_eq!(view.model, "loon_v1");
     assert_eq!(view.model_status, "ok");
+}
+
+#[test]
+fn the_call_model_loads_from_the_bundle_on_first_use() {
+    let fixture = Fixture::new();
+    let request = gavia_lib::service::CallRequest {
+        file_name: Some("lake.mp3".into()),
+        content_type: Some("audio/mpeg".into()),
+    };
+    let heard = fixture
+        .service
+        .detect_calls(&request, &audio_fixture("loon.mp3"))
+        .unwrap();
+    assert_eq!(heard.windows.len(), 3);
+    // It is not one of the photo models on offer.
+    assert!(
+        fixture
+            .service
+            .models()
+            .iter()
+            .all(|m| m.id != "looncall_v1")
+    );
+}
+
+#[test]
+fn a_missing_call_model_leaves_listening_unavailable() {
+    let root = tempfile::tempdir().unwrap();
+    let mut library = library(root.path());
+    library.call_model = root.path().join("nowhere/looncall_v1.onnx");
+    let service = Service::open(library, Config::default()).unwrap();
+    let request = gavia_lib::service::CallRequest::default();
+    let error = service
+        .detect_calls(&request, &audio_fixture("loon.mp3"))
+        .unwrap_err();
+    assert_eq!(error.code, "MODEL_UNAVAILABLE");
 }

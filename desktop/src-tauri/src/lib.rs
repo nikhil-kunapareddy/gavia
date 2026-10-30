@@ -1,4 +1,4 @@
-//! Gavia's core: detection, storage, and the commands the UI calls.
+//! Gavia's core: detection, loon calls, storage, and the commands the UI calls.
 //!
 //! One process. The React UI is served from the bundle and talks to this code
 //! through `invoke` (see `commands.rs`); stored images reach `<img>` tags
@@ -7,6 +7,7 @@
 //! machine to connect to. The only outbound connection is the update check
 //! (`tauri-plugin-updater`), which the reviewer can turn off in Settings.
 
+pub mod calls;
 pub mod commands;
 pub mod config;
 pub mod detection;
@@ -29,6 +30,10 @@ use crate::service::{Library, Service};
 
 /// Where the bundled models live, relative to the app's resource directory.
 pub const MODELS_RESOURCE: &str = "models";
+
+/// The loon call model, kept apart from `models/` so it is never offered as
+/// a photo model.
+pub const CALL_MODEL_RESOURCE: &str = "calls/looncall_v1.onnx";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -71,6 +76,9 @@ pub fn run() {
                 bundled_models: app
                     .path()
                     .resolve(MODELS_RESOURCE, BaseDirectory::Resource)?,
+                call_model: app
+                    .path()
+                    .resolve(CALL_MODEL_RESOURCE, BaseDirectory::Resource)?,
                 default_data_dir: storage::adopt_legacy_library(
                     &platform::default_data_dir(),
                     platform::legacy_data_dir().as_deref(),
@@ -88,6 +96,7 @@ pub fn run() {
             commands::health,
             commands::model_info,
             commands::detect,
+            commands::detect_calls,
             commands::save_result,
             commands::list_results,
             commands::get_result,

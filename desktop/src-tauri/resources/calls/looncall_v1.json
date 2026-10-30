@@ -1,0 +1,61 @@
+{
+  "name": "looncall 1.0",
+  "description": "Hears Common Loon calls: BirdNET 2.4 embeddings and a logistic regression, one answer per 3-second window.",
+  "architecture": "BirdNET 2.4 + logistic regression",
+  "task": "audio-classify",
+  "classes": [
+    "no loon",
+    "common loon"
+  ],
+  "display_label": "Loon call",
+  "file": "looncall_v1.onnx",
+  "sha256": "b47f45d1357260206bd58b9c6dd88cd7ff54a92575ef45387d9793931e527895",
+  "size_bytes": 25619068,
+  "input": {
+    "name": "audio",
+    "shape": [
+      "batch",
+      144000
+    ],
+    "dtype": "float32",
+    "sample_rate": 48000,
+    "window_seconds": 3.0
+  },
+  "output": {
+    "name": "p_loon",
+    "shape": [
+      "batch"
+    ],
+    "meaning": "P(loon call) per window"
+  },
+  "defaults": {
+    "threshold": 0.5
+  },
+  "export": {
+    "opset": 17,
+    "exporter": "tf2onnx 1.16.1 + desktop/scripts/export_looncall.py",
+    "checked_windows": 125,
+    "worst_difference_from_tflite": 0.000207,
+    "exported_at": "2026-10-30T02:57:03-07:00"
+  },
+  "provenance": {
+    "source_repo": "loonet",
+    "head": "models/looncall/v1/weights.npz",
+    "head_sha256": "1d29eeba064d770b9d8d1e30de5a2c67a7f13f7a3656bf005a0db33f997fb775",
+    "embedding_model": "BirdNET 2.4 FP32 TFLite (birdnet 1.3.1)",
+    "embedding_model_sha256": "55f3e4055b1a13bfa9a2452731d0d34f6a02d6b775a334362665892794165e4c",
+    "embedding_model_url": "https://zenodo.org/records/15050749"
+  },
+  "metrics": {
+    "note": "loonet runs/looncall_v1: the clean val split (65 windows), and recall with the val windows mixed into drone propeller noise at 5 dB SNR.",
+    "precision": 1.0,
+    "recall": 1.0,
+    "average_precision": 1.0,
+    "recall_5db_drone_noise": 0.6785714285714286
+  },
+  "license": {
+    "spdx": "CC-BY-NC-SA-4.0",
+    "reason": "Contains BirdNET 2.4, licensed CC BY-NC-SA 4.0 by the K. Lisa Yang Center for Conservation Bioacoustics. The looncall head is MIT.",
+    "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+  }
+}

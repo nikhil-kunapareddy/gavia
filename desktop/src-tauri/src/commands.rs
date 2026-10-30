@@ -14,8 +14,8 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::error::ApiError;
 use crate::service::{
-    Deleted, DetectRequest, DetectionResult, HealthResponse, ModelResponse, SaveRequest, Service,
-    SettingsView, unframe,
+    CallRequest, CallResult, Deleted, DetectRequest, DetectionResult, HealthResponse,
+    ModelResponse, SaveRequest, Service, SettingsView, unframe,
 };
 
 type Result<T> = std::result::Result<T, ApiError>;
@@ -33,7 +33,7 @@ fn raw_body(request: &Request<'_>) -> Result<Vec<u8>> {
     match request.body() {
         InvokeBody::Raw(bytes) => Ok(bytes.clone()),
         InvokeBody::Json(_) => Err(ApiError::invalid_request(
-            "Expected the image as a binary body.",
+            "Expected the file as a binary body.",
         )),
     }
 }
@@ -60,6 +60,22 @@ pub async fn detect(
     blocking(move || {
         let (meta, bytes): (DetectRequest, _) = unframe(&body)?;
         service.detect(&meta, bytes)
+    })
+    .await
+}
+
+/// Body: framed `CallRequest` JSON plus the recording. The call model loads
+/// on the first one, so that call takes a second longer.
+#[tauri::command]
+pub async fn detect_calls(
+    request: Request<'_>,
+    service: State<'_, Arc<Service>>,
+) -> Result<CallResult> {
+    let body = raw_body(&request)?;
+    let service = service.inner().clone();
+    blocking(move || {
+        let (meta, bytes): (CallRequest, _) = unframe(&body)?;
+        service.detect_calls(&meta, bytes)
     })
     .await
 }

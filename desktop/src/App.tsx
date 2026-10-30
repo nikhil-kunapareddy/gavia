@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CallResult } from './components/CallResult'
 import { DetectionResult } from './components/DetectionResult'
 import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
@@ -7,12 +8,14 @@ import { describeSkipped, type Skipped } from './lib/batch'
 import { revokeIfObjectUrl } from './lib/imageFile'
 import { applyTheme, readTheme, saveTheme } from './lib/theme'
 import { readAutoUpdate, saveAutoUpdate } from './lib/updates'
+import { AudioPage } from './pages/AudioPage'
 import { BatchPage } from './pages/BatchPage'
 import { CheckPage } from './pages/CheckPage'
 import { HelpPage } from './pages/HelpPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { SettingsPage, type SettingsBusy } from './pages/SettingsPage'
 import { ApiError } from './services/api'
+import { analyzeRecording } from './services/callService'
 import { analyzeImage } from './services/detectionService'
 import { confirmAction } from './services/dialog'
 import { clearHistory, loadHistory, saveResult } from './services/historyService'
@@ -25,6 +28,7 @@ import {
 } from './services/settingsService'
 import { downloadUpdate, type ReadyUpdate } from './services/updateService'
 import type { BatchBusy, BatchItem } from './types/batch'
+import type { CallResult as Calls } from './types/calls'
 import type { DetectionResult as Result } from './types/detection'
 import type { Page } from './types/navigation'
 import type { AppSettings, ThemeChoice } from './types/settings'
@@ -33,6 +37,8 @@ import type { AppSettings, ThemeChoice } from './types/settings'
 const MODEL_POLL_MS = 600
 
 const GENERIC_ERROR = 'Something went wrong while checking this image. Please try again.'
+const GENERIC_RECORDING_ERROR =
+  'Something went wrong while listening to this recording. Please try again.'
 
 /**
  * Core errors the user can act on. Anything else gets the generic message,
@@ -42,13 +48,14 @@ const GENERIC_ERROR = 'Something went wrong while checking this image. Please tr
 const ACTIONABLE_CODES = new Set([
   'UNSUPPORTED_FORMAT',
   'IMAGE_TOO_LARGE',
+  'RECORDING_TOO_LARGE',
   'DECODE_FAILED',
   'MODEL_UNAVAILABLE',
 ])
 
-function messageFor(cause: unknown): string {
+function messageFor(cause: unknown, fallback = GENERIC_ERROR): string {
   if (cause instanceof ApiError && ACTIONABLE_CODES.has(cause.code)) return cause.message
-  return GENERIC_ERROR
+  return fallback
 }
 
 /**
@@ -79,6 +86,11 @@ function App() {
   const [batchBusy, setBatchBusy] = useState<BatchBusy>(null)
   const [batchError, setBatchError] = useState('')
   const [openKey, setOpenKey] = useState<string | null>(null)
+  const [recording, setRecording] = useState<File | null>(null)
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
+  const [calls, setCalls] = useState<Calls | null>(null)
+  const [listening, setListening] = useState(false)
+  const [listenError, setListenError] = useState('')
   // Read by the running check between images, so it can't be state.
   const stopRequested = useRef(false)
   const [mobileMenu, setMobileMenu] = useState(false)
@@ -181,6 +193,7 @@ function App() {
   }
 
   useEffect(() => () => revokeIfObjectUrl(previewUrl), [previewUrl])
+  useEffect(() => () => revokeIfObjectUrl(recordingUrl), [recordingUrl])
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -359,6 +372,40 @@ function App() {
     }
   }
 
+  function chooseRecording(next: File) {
+    revokeIfObjectUrl(recordingUrl)
+    setRecording(next)
+    setRecordingUrl(URL.createObjectURL(next))
+    setCalls(null)
+    setListenError('')
+  }
+
+  function removeRecording() {
+    revokeIfObjectUrl(recordingUrl)
+    setRecording(null)
+    setRecordingUrl(null)
+    setListenError('')
+  }
+
+  async function listen() {
+    if (!recording) return
+    setListening(true)
+    setListenError('')
+    try {
+      setCalls(await analyzeRecording(recording))
+    } catch (cause) {
+      console.error('Listening failed:', cause)
+      setListenError(messageFor(cause, GENERIC_RECORDING_ERROR))
+    } finally {
+      setListening(false)
+    }
+  }
+
+  function listenAgain() {
+    removeRecording()
+    setCalls(null)
+  }
+
   function resetCheck() {
     removeFile()
     setResult(null)
@@ -484,6 +531,21 @@ function App() {
               onFiles={chooseFiles}
               onRemove={removeFile}
               onCheck={() => void checkImage()}
+            />
+          ))}
+
+        {page === 'audio' &&
+          (calls ? (
+            <CallResult result={calls} audioUrl={recordingUrl} onCheckAnother={listenAgain} />
+          ) : (
+            <AudioPage
+              file={recording}
+              audioUrl={recordingUrl}
+              processing={listening}
+              error={listenError}
+              onFile={chooseRecording}
+              onRemove={removeRecording}
+              onCheck={() => void listen()}
             />
           ))}
 

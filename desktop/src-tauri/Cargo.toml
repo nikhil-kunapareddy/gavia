@@ -46,6 +46,14 @@ fast_image_resize = "6"
 # Lossy WebP for thumbnails; the image crate only encodes lossless.
 webp = { version = "0.3", default-features = false }
 
+# Loon calls. Pure-Rust decoding of WAV, MP3, FLAC, Ogg Vorbis and M4A (AAC),
+# and the FFT behind scipy-compatible resampling, so recordings at any sample
+# rate reach the model the way the Python pipeline fed it.
+symphonia = { version = "0.5", default-features = false, features = [
+    "wav", "pcm", "mp3", "flac", "ogg", "vorbis", "isomp4", "aac",
+] }
+realfft = "3"
+
 rusqlite = { version = "0.40", features = ["bundled"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"

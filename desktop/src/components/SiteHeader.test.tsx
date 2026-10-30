@@ -26,6 +26,7 @@ function renderHeader(overrides = {}) {
 describe('navigation', () => {
   it.each([
     ['Check an image', 'check'],
+    ['Check an audio', 'audio'],
     ['Previous checks', 'results'],
     ['Settings', 'settings'],
     ['Help', 'help'],

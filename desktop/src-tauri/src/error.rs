@@ -7,6 +7,7 @@
 
 use serde::Serialize;
 
+use crate::calls::AudioError;
 use crate::detection::loader::LoadError;
 
 #[derive(Debug, Clone, PartialEq, Serialize, thiserror::Error)]
@@ -65,6 +66,20 @@ impl ApiError {
         )
     }
 
+    pub fn recording_too_large(message: impl Into<String>) -> Self {
+        Self::new("RECORDING_TOO_LARGE", message, 413)
+    }
+
+    /// The call model's counterpart to [`ApiError::model_unavailable`]: same
+    /// code, so the UI treats both alike, but it names the right model.
+    pub fn call_model_unavailable() -> Self {
+        Self::new(
+            "MODEL_UNAVAILABLE",
+            "The loon call model is not available. Please restart Gavia.",
+            503,
+        )
+    }
+
     pub fn internal(cause: impl std::fmt::Display) -> Self {
         let error = Self::new("INTERNAL_ERROR", "Something went wrong inside Gavia.", 500);
         log::error!("internal error {}: {cause}", error.request_id);
@@ -78,6 +93,16 @@ impl From<LoadError> for ApiError {
             LoadError::Decode(message) => Self::new("DECODE_FAILED", message, 422),
             LoadError::TooLarge(message) => Self::image_too_large(message),
             LoadError::Unsupported(message) => Self::unsupported_format(message),
+        }
+    }
+}
+
+impl From<AudioError> for ApiError {
+    fn from(error: AudioError) -> Self {
+        match error {
+            AudioError::Decode(message) => Self::new("DECODE_FAILED", message, 422),
+            AudioError::TooLong(message) => Self::recording_too_large(message),
+            AudioError::Unsupported(message) => Self::unsupported_format(message),
         }
     }
 }
@@ -122,6 +147,24 @@ mod tests {
             let api = ApiError::from(error);
             assert_eq!((api.code, api.status), (code, status));
         }
+    }
+
+    #[test]
+    fn audio_errors_map_to_their_codes() {
+        let cases = [
+            (AudioError::Decode("x".into()), "DECODE_FAILED", 422),
+            (AudioError::TooLong("x".into()), "RECORDING_TOO_LARGE", 413),
+            (
+                AudioError::Unsupported("x".into()),
+                "UNSUPPORTED_FORMAT",
+                415,
+            ),
+        ];
+        for (error, code, status) in cases {
+            let api = ApiError::from(error);
+            assert_eq!((api.code, api.status), (code, status));
+        }
+        assert_eq!(ApiError::call_model_unavailable().code, "MODEL_UNAVAILABLE");
     }
 
     #[test]
