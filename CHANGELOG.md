@@ -4,9 +4,14 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
 ### Added
 - **Check an audio** listens for loon calls. Open a recording (WAV, MP3, FLAC, OGG, M4A, or the sound of an MP4 or MOV video, up to 100 MB and 4 hours) and Gavia checks every three seconds of it. The result shows each call on a timeline you can click to hear, its confidence, and a CSV of every stretch. Like a photo check, it runs on your computer and nothing is sent anywhere. Recordings aren't saved to the history yet.
 - The call model is looncall 1.0 from the loonet project: BirdNET 2.4 with a classifier trained on loon calls. BirdNET is licensed CC BY-NC-SA 4.0, so the call model is for non-commercial use.
+
+### Security
+- Updated `rustls` and its certificate crates for this month's RustSec advisories. The `zip` advisories in Tauri's updater are documented as unreachable in Gavia, since its updates are signed installers, never zip archives.
 
 ## [0.3.1] - 2026-09-29
 
