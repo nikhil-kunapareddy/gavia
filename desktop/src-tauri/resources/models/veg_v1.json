@@ -1,0 +1,95 @@
+{
+  "name": "Vegnet 1.0",
+  "description": "Invasive lake plant detector for ground-level photographs, one box per contiguous stand of a species.",
+  "architecture": "YOLO26s",
+  "task": "detect",
+  "classes": [
+    "purple loosestrife",
+    "common reed",
+    "water chestnut",
+    "yellow flag iris"
+  ],
+  "display_labels": {
+    "purple loosestrife": "Purple loosestrife",
+    "common reed": "Common reed",
+    "water chestnut": "Water chestnut",
+    "yellow flag iris": "Yellow flag iris"
+  },
+  "subject": {
+    "one": "invasive plant",
+    "many": "invasive plants"
+  },
+  "file": "veg_v1.onnx",
+  "sha256": "677b3955b1d4ee43a6893df0187c31b5919d730fbfc51b6acceaea9528ce7f09",
+  "size_bytes": 38172346,
+  "input": {
+    "name": "images",
+    "shape": [
+      1,
+      3,
+      640,
+      640
+    ],
+    "layout": "NCHW",
+    "dtype": "float32",
+    "range": [
+      0.0,
+      1.0
+    ],
+    "color_order": "RGB",
+    "letterbox_pad_value": 114
+  },
+  "output": {
+    "name": "output0",
+    "shape": [
+      1,
+      300,
+      6
+    ],
+    "layout": "x1,y1,x2,y2,score,class x detections",
+    "coordinate_space": "letterboxed input pixels",
+    "end_to_end": true
+  },
+  "defaults": {
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.45,
+    "max_detections": 300
+  },
+  "export": {
+    "opset": 17,
+    "simplified": true,
+    "dynamic": false,
+    "exporter": "ultralytics 8.4.138",
+    "exported_at": "2026-10-31T22:49:54-07:00",
+    "check": {
+      "against": "PyTorch weights, vegnet_v1 val split",
+      "images": 28,
+      "boxes": 32,
+      "worst_score_difference": 9e-06,
+      "worst_box_difference_px": 0.0007
+    }
+  },
+  "provenance": {
+    "source_repo": "loonet",
+    "source_run": "runs/vegnet_v1_yolo26s",
+    "source_weights": "models/vegnet/v1/best.pt",
+    "source_weights_sha256": "b027eb0cec4267e447efc85d6391ae5c4d3e1f3f944d7ea4abde6b47c63cf142",
+    "dataset": "vegnet_v1",
+    "trained_at": "2026-10-30T01:37:18.648380-07:00",
+    "epochs": 100,
+    "image_size": 640,
+    "base_weights": "yolo26s.pt"
+  },
+  "metrics": {
+    "note": "Ultralytics validation split, recorded in the best.pt checkpoint. The val boxes were drafted by Grounding DINO and reviewed, not hand-drawn.",
+    "precision": 0.85171,
+    "recall": 0.77372,
+    "mAP50": 0.79837,
+    "mAP50-95": 0.56624
+  },
+  "license": {
+    "spdx": "AGPL-3.0-only",
+    "reason": "Derived from Ultralytics YOLO26, which is AGPL-3.0 licensed.",
+    "url": "https://ultralytics.com/license"
+  }
+}

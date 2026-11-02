@@ -1,5 +1,5 @@
 import { ChevronRight, History } from 'lucide-react'
-import { formatDate, highestConfidence, pluralizeLoons, toPercent } from '../lib/format'
+import { capitalize, countOf, formatDate, highestConfidence, toPercent } from '../lib/format'
 import type { DetectionResult } from '../types/detection'
 
 interface HistoryPageProps {
@@ -13,7 +13,7 @@ interface HistoryPageProps {
 function summarize(result: DetectionResult): string {
   if (result.detections.length === 0) return 'Review this result'
   const percent = toPercent(highestConfidence(result.detections))
-  return `${pluralizeLoons(result.detections.length)} · ${percent}% highest confidence`
+  return `${countOf(result.detections.length, result.subject)} · ${percent}% highest confidence`
 }
 
 export function HistoryPage({
@@ -28,7 +28,7 @@ export function HistoryPage({
       <div className="section-heading">
         <div>
           <h1>Previous checks</h1>
-          <p className="intro-lede">Review images you&apos;ve checked with the loon detector.</p>
+          <p className="intro-lede">Review images you&apos;ve checked and saved.</p>
         </div>
         {history.length > 0 && (
           <button className="text-button danger-text" onClick={onClearHistory}>
@@ -59,7 +59,9 @@ export function HistoryPage({
                 <span
                   className={item.detections.length ? 'history-status found' : 'history-status'}
                 >
-                  {item.detections.length ? 'Loon detected' : 'No loon detected'}
+                  {item.detections.length
+                    ? `${capitalize(item.subject.one)} detected`
+                    : `No ${item.subject.one} detected`}
                 </span>
                 <strong>{summarize(item)}</strong>
                 <small>{formatDate(item.timestamp)}</small>

@@ -28,7 +28,7 @@
 *.woff2 binary
 
 # Model weights. Committed, not LFS: an offline desktop app has to ship with
-# its models, and 36MB (photos) plus 26MB (calls) is a one-time clone cost.
+# its models, and 2 x 38MB (photos) plus 26MB (calls) is a one-time clone cost.
 *.onnx binary
 
 # PowerShell scripts are the one exception.

@@ -9,7 +9,15 @@
 //!
 //! Reports precision and recall at the shipped 0.25 threshold and AP@0.5 over
 //! the full curve, for a YOLO-format split: one image path per line, labels in
-//! the sibling `labels/` folder as `class cx cy w h`, normalised.
+//! the sibling `labels/` folder as `class cx cy w h`, normalised. A box only
+//! matches a label of its own class; a model with several classes gets a row
+//! per class and their mean, the counterpart of Ultralytics' mAP50.
+//!
+//! ```sh
+//! cargo run --release --example evaluate -- \
+//!     --split ~/Documents/loonet/data/annotated/vegnet_v1/val.txt \
+//!     --model resources/models/veg_v1.onnx
+//! ```
 
 use std::path::{Path, PathBuf};
 
@@ -24,6 +32,8 @@ const CURVE_THRESHOLD: f64 = 0.001;
 const SHIPPED_THRESHOLD: f64 = 0.25;
 
 type Box = [f64; 4];
+/// A class index and a box.
+type Label = (usize, Box);
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -34,7 +44,9 @@ fn main() {
             .cloned()
     };
     let Some(split) = value("--split") else {
-        eprintln!("usage: evaluate --split <val.txt> [--tiled] [--model <loon.onnx>] [--iou 0.45]");
+        eprintln!(
+            "usage: evaluate --split <val.txt> [--tiled] [--model <model.onnx>] [--iou 0.45]"
+        );
         std::process::exit(2);
     };
     let model = value("--model").map(PathBuf::from).unwrap_or_else(|| {
@@ -45,9 +57,9 @@ fn main() {
 
     let text = std::fs::read_to_string(&split).unwrap_or_else(|e| panic!("{split}: {e}"));
     let images: Vec<PathBuf> = text.split_whitespace().map(PathBuf::from).collect();
-    let truth: Vec<Vec<Box>> = images.iter().map(|p| load_labels(p)).collect();
+    let truth: Vec<Vec<Label>> = images.iter().map(|p| load_labels(p)).collect();
     let total: usize = truth.iter().map(Vec::len).sum();
-    println!("{} images, {total} labelled loons\n", images.len());
+    println!("{} images, {total} labelled boxes\n", images.len());
 
     let detector = Detector::load(
         &model,
@@ -61,7 +73,7 @@ fn main() {
         tiling: Some(tiled),
     };
 
-    let predictions: Vec<Vec<(f64, Box)>> = images
+    let predictions: Vec<Vec<(usize, f64, Box)>> = images
         .iter()
         .map(|path| {
             let outcome = detector
@@ -81,29 +93,64 @@ fn main() {
                         (p.x + p.width) / 100.0 * w,
                         (p.y + p.height) / 100.0 * h,
                     ];
-                    (p.confidence, corners)
+                    (p.class_id, p.confidence, corners)
                 })
                 .collect()
         })
         .collect();
 
-    let (p, r, ap, n) = score(&predictions, &truth, total);
-    let name = if tiled {
+    let pipeline = if tiled {
         "onnx tiled"
     } else {
         "onnx single-pass"
     };
     println!(
         "{:24} {:>7} {:>7} {:>8} {:>7}",
-        "pipeline", "P", "R", "AP@0.5", "preds"
+        pipeline, "P", "R", "AP@0.5", "preds"
     );
     println!("{}", "-".repeat(56));
-    println!("{name:24} {p:7.4} {r:7.4} {ap:8.4} {n:7}");
+    let classes = &detector.info().classes;
+    let mut rows = Vec::new();
+    for (class, name) in classes.iter().enumerate() {
+        let of_class = |boxes: &[(usize, f64, Box)]| {
+            boxes
+                .iter()
+                .filter(|b| b.0 == class)
+                .map(|b| (b.1, b.2))
+                .collect::<Vec<_>>()
+        };
+        let preds: Vec<_> = predictions.iter().map(|p| of_class(p)).collect();
+        let targets: Vec<Vec<Box>> = truth
+            .iter()
+            .map(|t| t.iter().filter(|l| l.0 == class).map(|l| l.1).collect())
+            .collect();
+        let total = targets.iter().map(Vec::len).sum();
+        if total == 0 {
+            continue;
+        }
+        let (p, r, ap, n) = score(&preds, &targets, total);
+        println!("{name:24} {p:7.4} {r:7.4} {ap:8.4} {n:7}");
+        rows.push((p, r, ap, n));
+    }
+    if rows.len() > 1 {
+        let mean = |f: fn(&(f64, f64, f64, usize)) -> f64| {
+            rows.iter().map(f).sum::<f64>() / rows.len() as f64
+        };
+        let n: usize = rows.iter().map(|r| r.3).sum();
+        println!("{}", "-".repeat(56));
+        println!(
+            "{:24} {:7.4} {:7.4} {:8.4} {n:7}",
+            "mean",
+            mean(|r| r.0),
+            mean(|r| r.1),
+            mean(|r| r.2)
+        );
+    }
 }
 
-/// YOLO label file as pixel-space corners. Dimensions come from the shared
-/// loader so truth and predictions agree on EXIF orientation.
-fn load_labels(image: &Path) -> Vec<Box> {
+/// YOLO label file as classes and pixel-space corners. Dimensions come from
+/// the shared loader so truth and predictions agree on EXIF orientation.
+fn load_labels(image: &Path) -> Vec<Label> {
     let label = PathBuf::from(image.to_string_lossy().replace("/images/", "/labels/"))
         .with_extension("txt");
     let Ok(text) = std::fs::read_to_string(label) else {
@@ -119,12 +166,13 @@ fn load_labels(image: &Path) -> Vec<Box> {
                 .collect();
             (v.len() >= 5).then(|| {
                 let (cx, cy, bw, bh) = (v[1], v[2], v[3], v[4]);
-                [
+                let corners = [
                     (cx - bw / 2.0) * w,
                     (cy - bh / 2.0) * h,
                     (cx + bw / 2.0) * w,
                     (cy + bh / 2.0) * h,
-                ]
+                ];
+                (v[0] as usize, corners)
             })
         })
         .collect()

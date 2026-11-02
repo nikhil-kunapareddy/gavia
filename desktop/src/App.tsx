@@ -5,6 +5,7 @@ import { SiteFooter } from './components/SiteFooter'
 import { SiteHeader } from './components/SiteHeader'
 import { UpdateBanner } from './components/UpdateBanner'
 import { describeSkipped, type Skipped } from './lib/batch'
+import { LOONS } from './lib/format'
 import { revokeIfObjectUrl } from './lib/imageFile'
 import { applyTheme, readTheme, saveTheme } from './lib/theme'
 import { readAutoUpdate, saveAutoUpdate } from './lib/updates'
@@ -152,9 +153,13 @@ function App() {
     }
   }, [])
 
+  // The Check page needs them too, for its model menu.
   useEffect(() => {
-    if (page === 'settings') void refreshSettings()
+    if (page === 'settings' || page === 'check') void refreshSettings()
   }, [page, refreshSettings])
+
+  // What the chosen photo model looks for, until a result says for itself.
+  const subject = settings?.models.find((model) => model.id === settings.model)?.subject ?? LOONS
 
   // A newly chosen model loads in the background; keep asking until it's done.
   useEffect(() => {
@@ -180,6 +185,17 @@ function App() {
       )
     } finally {
       setSettingsBusy(null)
+    }
+  }
+
+  /** The Check page's model menu: the same choice as Settings, with errors shown in place. */
+  async function chooseModel(id: string) {
+    setError('')
+    try {
+      setSettings(await selectModel(id))
+    } catch (cause) {
+      console.error('Could not change the model:', cause)
+      setError(settingsMessage(cause, 'That model could not be chosen. Please try again.'))
     }
   }
 
@@ -512,6 +528,7 @@ function App() {
           ) : batch.length > 0 ? (
             <BatchPage
               items={batch}
+              subject={subject}
               busy={batchBusy}
               notice={notice}
               error={batchError}
@@ -523,6 +540,9 @@ function App() {
             />
           ) : (
             <CheckPage
+              settings={settings}
+              subject={subject}
+              onSelectModel={(id) => void chooseModel(id)}
               file={file}
               previewUrl={previewUrl}
               processing={processing}

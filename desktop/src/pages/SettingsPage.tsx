@@ -1,5 +1,6 @@
 import { FolderOpen, Monitor, Moon, RotateCcw, Sun } from 'lucide-react'
-import type { AppSettings, ModelEntry, ModelStatus, ThemeChoice } from '../types/settings'
+import { ModelPicker } from '../components/ModelPicker'
+import type { AppSettings, ThemeChoice } from '../types/settings'
 
 export type SettingsBusy = 'storage' | 'model' | null
 
@@ -23,15 +24,6 @@ const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System', icon: Monitor },
 ]
 
-function modelLabel(model: ModelEntry): string {
-  return model.custom ? `${model.name} (added)` : model.name
-}
-
-/** A ready model says nothing; only loading and failure need a word. */
-function modelStatusText(status: Exclude<ModelStatus, 'ok'>): string {
-  return status === 'starting' ? 'Loading…' : 'Could not load this model'
-}
-
 export function SettingsPage({
   theme,
   onThemeChange,
@@ -45,8 +37,6 @@ export function SettingsPage({
   onOpenFolder,
   onSelectModel,
 }: SettingsPageProps) {
-  const selected = settings?.models.find((model) => model.id === settings.model)
-
   return (
     <section className="settings-page">
       <div className="section-heading">
@@ -139,35 +129,14 @@ export function SettingsPage({
       <div className="settings-section">
         <div className="settings-label">
           <h2>Detection model</h2>
-          <p>The model Gavia uses to find loons in your photos.</p>
+          <p>
+            The model Gavia checks your photos with: loons, or invasive lake plants. The Check page
+            offers the same choice.
+          </p>
         </div>
         {settings ? (
           <div className="settings-control">
-            {/* A choice only appears once a second model has been added. */}
-            {settings.models.length > 1 ? (
-              <label className="settings-field">
-                <span>Model</span>
-                <select
-                  value={settings.model}
-                  onChange={(event) => onSelectModel(event.target.value)}
-                  disabled={busy === 'model' || settings.modelStatus === 'starting'}
-                >
-                  {settings.models.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {modelLabel(model)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <p className="settings-value">{selected?.name ?? settings.model}</p>
-            )}
-            {settings.modelStatus !== 'ok' && (
-              <p className={`model-status model-status-${settings.modelStatus}`}>
-                <span className="status-light" aria-hidden="true" />
-                {modelStatusText(settings.modelStatus)}
-              </p>
-            )}
+            <ModelPicker settings={settings} disabled={busy === 'model'} onSelect={onSelectModel} />
           </div>
         ) : (
           <p className="settings-hint">Loading…</p>

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::calls::{CallDetector, ListenError};
 use crate::config::Config;
 use crate::detection::loader;
-use crate::detection::{DetectError, DetectOptions, Detector};
+use crate::detection::{DetectError, DetectOptions, Detector, Subject};
 use crate::error::ApiError;
 use crate::models::{self, DEFAULT_MODEL, ModelEntry};
 use crate::platform;
@@ -76,6 +76,10 @@ pub struct DetectionResult {
     pub image_width: u32,
     pub image_height: u32,
     pub model_name: String,
+    /// What the model looks for ("loon", "invasive plant"), so a result reads
+    /// right whichever model made it. Not stored: saved results look it up by
+    /// `model_name`, and a model that has gone since counts as a loon model.
+    pub subject: Subject,
     pub tiles_processed: u32,
     pub saved: bool,
 }
@@ -619,7 +623,7 @@ impl Service {
         })
     }
 
-    /// Detect loons in one photograph.
+    /// Detect loons, or whatever the chosen model looks for, in one photograph.
     ///
     /// Deliberately does **not** persist. A reviewer looks at a result and
     /// decides whether it is worth keeping; writing every check to disk would
@@ -691,6 +695,7 @@ impl Service {
             image_width: outcome.image_width,
             image_height: outcome.image_height,
             model_name: detector.info().name.clone(),
+            subject: detector.info().subject.clone(),
             tiles_processed: outcome.tiles_processed as u32,
             saved: false,
             id,
@@ -819,7 +824,7 @@ impl Service {
                 SaveError::Database(e) => ApiError::internal(e),
                 SaveError::Io(e) => ApiError::internal(e),
             })?;
-        Ok(to_wire(&stored))
+        Ok(to_wire(&stored, &self.models()))
     }
 
     pub fn list(
@@ -833,18 +838,19 @@ impl Service {
                 "limit must be between 1 and 1000.",
             ));
         }
+        let models = self.models();
         Ok(self
             .repo()
             .list(limit, offset.unwrap_or(0))?
             .iter()
-            .map(to_wire)
+            .map(|stored| to_wire(stored, &models))
             .collect())
     }
 
     pub fn get(&self, id: &str) -> Result<DetectionResult, ApiError> {
         self.repo()
             .get(id)?
-            .map(|stored| to_wire(&stored))
+            .map(|stored| to_wire(&stored, &self.models()))
             .ok_or_else(|| ApiError::not_found("No saved result with that id."))
     }
 
@@ -920,7 +926,7 @@ fn media_type(extension: &str) -> &'static str {
 
 /// A stored row in the wire format. Detection ids derive from position, so
 /// re-fetching a result gives the same ids and React keys stay put.
-fn to_wire(stored: &StoredResult) -> DetectionResult {
+fn to_wire(stored: &StoredResult, models: &[ModelEntry]) -> DetectionResult {
     let base = format!("{}/results/{}", platform::ASSET_ORIGIN, stored.id);
     DetectionResult {
         id: stored.id.clone(),
@@ -949,6 +955,11 @@ fn to_wire(stored: &StoredResult) -> DetectionResult {
         image_width: stored.image_width,
         image_height: stored.image_height,
         model_name: stored.model_name.clone(),
+        subject: models
+            .iter()
+            .find(|m| m.name == stored.model_name)
+            .map(|m| m.subject.clone())
+            .unwrap_or_default(),
         tiles_processed: stored.tiles_processed,
         saved: true,
     }

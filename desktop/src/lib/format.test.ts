@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { Detection } from '../types/detection'
-import { formatFileSize, highestConfidence, pluralizeLoons, toPercent } from './format'
+import {
+  LOONS,
+  article,
+  capitalize,
+  countOf,
+  formatFileSize,
+  highestConfidence,
+  toPercent,
+  withArticle,
+} from './format'
 
 function detection(id: string, confidence: number): Detection {
   return { id, label: 'Loon', confidence, boundingBox: { x: 0, y: 0, width: 10, height: 10 } }
@@ -40,13 +49,30 @@ describe('toPercent', () => {
   })
 })
 
-describe('pluralizeLoons', () => {
+describe('countOf', () => {
+  const plants = { one: 'invasive plant', many: 'invasive plants' }
+
   it('uses the singular for exactly one', () => {
-    expect(pluralizeLoons(1)).toBe('1 loon')
+    expect(countOf(1, LOONS)).toBe('1 loon')
+    expect(countOf(1, plants)).toBe('1 invasive plant')
   })
 
   it.each([0, 2, 5])('uses the plural for %i', (count) => {
-    expect(pluralizeLoons(count)).toBe(`${count} loons`)
+    expect(countOf(count, LOONS)).toBe(`${count} loons`)
+    expect(countOf(count, plants)).toBe(`${count} invasive plants`)
+  })
+})
+
+describe('articles and capitals', () => {
+  it('says "an" before a vowel and "a" otherwise', () => {
+    expect(article('invasive plant')).toBe('an')
+    expect(withArticle('loon')).toBe('a loon')
+    expect(withArticle('invasive plant')).toBe('an invasive plant')
+  })
+
+  it('capitalizes only the first letter', () => {
+    expect(capitalize('invasive plants')).toBe('Invasive plants')
+    expect(capitalize('')).toBe('')
   })
 })
 

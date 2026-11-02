@@ -1,7 +1,7 @@
 const STEPS = [
   'Upload a photo, several, or a zip of up to 25.',
   'The system analyzes the image.',
-  'If a loon is detected, we highlight it.',
+  'Whatever the chosen model finds, a loon or an invasive plant, is highlighted.',
   'Review the result with your own expertise.',
 ]
 
@@ -36,8 +36,8 @@ export function HelpPage() {
         </h1>
         <p className="intro-lede">
           This tool uses computer vision to help identify loons in photographs, and listens for
-          their calls in recordings. It is designed to support researchers and conservation teams
-          working with loon populations and habitat.
+          their calls in recordings. It can also look for invasive lake plants. It is designed to
+          support researchers and conservation teams working with loon populations and habitat.
         </p>
       </div>
 

@@ -1,8 +1,16 @@
 import { ChevronRight, LoaderCircle, Sparkles } from 'lucide-react'
 import { ImageUploader } from '../components/ImageUploader'
+import { ModelPicker } from '../components/ModelPicker'
 import type { Skipped } from '../lib/batch'
+import { article, LOONS, withArticle } from '../lib/format'
+import type { Subject } from '../types/detection'
+import type { AppSettings } from '../types/settings'
 
 interface CheckPageProps {
+  /** For the model menu; without settings there is no menu and checks look for loons. */
+  settings?: AppSettings | null
+  /** What the chosen model looks for. */
+  subject?: Subject
   file: File | null
   previewUrl: string | null
   processing: boolean
@@ -12,9 +20,12 @@ interface CheckPageProps {
   onFiles: (images: File[], skipped: Skipped[]) => void
   onRemove: () => void
   onCheck: () => void
+  onSelectModel?: (id: string) => void
 }
 
 export function CheckPage({
+  settings = null,
+  subject = LOONS,
   file,
   previewUrl,
   processing,
@@ -23,21 +34,25 @@ export function CheckPage({
   onFiles,
   onRemove,
   onCheck,
+  onSelectModel = () => undefined,
 }: CheckPageProps) {
   return (
     <>
       <div className="page-intro">
         <div className="intro-copy">
           <h1>
-            Is this a <em>loon?</em>
+            Is this {article(subject.one)} <em>{subject.one}?</em>
           </h1>
           <p className="intro-lede">
-            Upload photos, or a zip of them, to check whether a loon is present.
+            Upload photos, or a zip of them, to check whether {withArticle(subject.one)} is present.
           </p>
         </div>
       </div>
 
       <div className="check-panel">
+        {settings && settings.models.length > 1 && (
+          <ModelPicker settings={settings} disabled={processing} onSelect={onSelectModel} />
+        )}
         <ImageUploader file={file} previewUrl={previewUrl} onFiles={onFiles} onRemove={onRemove} />
         {notice && <p className="notice-text">{notice}</p>}
         {file && (
@@ -52,7 +67,7 @@ export function CheckPage({
               </>
             ) : (
               <>
-                Check for loons <ChevronRight size={18} />
+                Check for {subject.many} <ChevronRight size={18} />
               </>
             )}
           </button>
@@ -67,7 +82,7 @@ export function CheckPage({
             <Sparkles size={17} />
             <span>
               <strong>We&apos;re looking closely.</strong>
-              <small>Looking for loon-like features in this photo.</small>
+              <small>Looking for {subject.many} in this photo.</small>
             </span>
           </div>
         )}

@@ -17,6 +17,8 @@ use super::preprocess::{self, TilePlan, TileSettings};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Prediction {
     pub label: String,
+    /// Index into the model's classes; `label` is its display name.
+    pub class_id: usize,
     pub confidence: f64,
     /// Percentages of the source image, 0-100.
     pub x: f64,
@@ -139,12 +141,30 @@ impl Detector {
 
     /// ORT defers allocation and kernel selection to the first run, roughly a
     /// second on this model, which the user would otherwise pay on first check.
+    /// It is also where an output that doesn't match the `.json` shows up, so a
+    /// mislabelled model fails to load instead of failing every check.
     fn warm_up(&self) -> Result<(), String> {
         let started = Instant::now();
         let mut engine = self.lock();
         let Engine { session, buffer } = &mut *engine;
         buffer.fill(0.0);
-        run(session, &self.input_name, buffer, self.info.input_size)?;
+        let (rows, columns, _) = run(session, &self.input_name, buffer, self.info.input_size)?;
+        let fits = if self.info.end_to_end {
+            columns == postprocess::END_TO_END_COLUMNS
+        } else {
+            // Anchors outnumber box-plus-class rows; (1, 300, 6) does not.
+            rows > 4 && columns > rows
+        };
+        if !fits {
+            return Err(format!(
+                "The model's output (1, {rows}, {columns}) does not match its metadata{}.",
+                if self.info.end_to_end {
+                    ", which says it is end to end"
+                } else {
+                    ""
+                }
+            ));
+        }
         log::info!(
             "model {} warmed up in {:.3}s",
             self.info.name,
@@ -153,7 +173,8 @@ impl Detector {
         Ok(())
     }
 
-    /// Find every loon in one encoded image. Blocking and CPU-bound.
+    /// Find every loon (or whatever the model looks for) in one encoded image.
+    /// Blocking and CPU-bound.
     pub fn detect(&self, bytes: &[u8], options: DetectOptions) -> Result<Outcome, DetectError> {
         let conf = options
             .confidence_threshold
@@ -183,7 +204,13 @@ impl Detector {
         let found = self.run_tiles(&image, &plan, conf)?;
         drop(image);
 
-        let kept = postprocess::non_max_suppression(&found, iou, self.info.max_detections);
+        // An end-to-end model has already chosen its boxes; NMS would only
+        // second-guess it. Tiles still overlap, so their boxes are merged.
+        let kept = if self.info.end_to_end && !plan.is_tiled() {
+            found
+        } else {
+            postprocess::non_max_suppression(&found, iou, self.info.max_detections)
+        };
         let mut kept = postprocess::clamp_to_image(kept, width, height);
         kept.sort_by(|a, b| b.score.total_cmp(&a.score));
 
@@ -193,6 +220,7 @@ impl Detector {
                 let (x, y, w, h) = postprocess::to_percentages(d, width, height);
                 Prediction {
                     label: self.info.label_for(d.class_id),
+                    class_id: d.class_id,
                     confidence: d.score,
                     x,
                     y,
@@ -237,9 +265,13 @@ impl Detector {
             geometry.origin_x = left;
             geometry.origin_y = top;
 
-            let (rows, anchors, output) =
+            let (rows, columns, output) =
                 run(session, &self.input_name, buffer, size).map_err(DetectError::Inference)?;
-            found.extend(postprocess::decode(&output, rows, anchors, &geometry, conf));
+            found.extend(if self.info.end_to_end {
+                postprocess::decode_end_to_end(&output, rows, &geometry, conf)
+            } else {
+                postprocess::decode(&output, rows, columns, &geometry, conf)
+            });
         }
         Ok(found)
     }
@@ -261,7 +293,8 @@ pub enum DetectError {
     Inference(String),
 }
 
-/// One forward pass. Returns `(rows, anchors, data)` of the `(1, rows, anchors)` output.
+/// One forward pass. Returns `(rows, columns, data)` of the `(1, rows, columns)`
+/// output: `(4 + classes, anchors)`, or `(detections, 6)` end to end.
 fn run(
     session: &mut Session,
     input_name: &str,

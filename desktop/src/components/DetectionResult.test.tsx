@@ -21,6 +21,7 @@ function makeResult(detections: Detection[]): Result {
     imageWidth: 4000,
     imageHeight: 3000,
     modelName: 'loon_v1',
+    subject: { one: 'loon', many: 'loons' },
     tilesProcessed: 1,
     saved: false,
   }
@@ -262,5 +263,64 @@ describe('as part of a batch', () => {
 
     expect(onBack).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: /another image/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('for another model', () => {
+  const plants = { one: 'invasive plant', many: 'invasive plants' }
+
+  function renderPlants(detections: Detection[]) {
+    return render(
+      <DetectionResult
+        result={{ ...makeResult(detections), modelName: 'Vegnet 1.0', subject: plants }}
+        onCheckAnother={vi.fn()}
+        onSave={vi.fn()}
+        saved={false}
+      />,
+    )
+  }
+
+  function plant(id: string, label: string, confidence: number): Detection {
+    return { ...detection(id, confidence), label }
+  }
+
+  it('speaks of what that model looks for, and labels each box by species', () => {
+    renderPlants([plant('a', 'Purple loosestrife', 0.9), plant('b', 'Common reed', 0.6)])
+    expect(screen.getByRole('heading', { name: '2 invasive plants detected' })).toBeInTheDocument()
+    expect(screen.getByText('We found 2 invasive plants in this image.')).toBeInTheDocument()
+    expect(screen.getByText(/where an invasive plant was found/)).toBeInTheDocument()
+    expect(screen.getByText('Purple loosestrife')).toBeInTheDocument()
+    expect(screen.getByText('Common reed')).toBeInTheDocument()
+  })
+
+  it('says so when it finds nothing', () => {
+    renderPlants([])
+    expect(screen.getByRole('heading', { name: 'No invasive plant detected' })).toBeInTheDocument()
+    expect(screen.getByText("We didn't find an invasive plant in this image.")).toBeInTheDocument()
+  })
+
+  it('names the model and the count in the details', async () => {
+    const user = userEvent.setup()
+    renderPlants([plant('a', 'Water chestnut', 0.9)])
+    await user.click(screen.getByText('View details'))
+    expect(screen.getByText('Invasive plants detected').nextElementSibling).toHaveTextContent('1')
+    expect(screen.getByText('Vegnet 1.0')).toBeInTheDocument()
+  })
+
+  it('names the download after what was looked for', async () => {
+    const user = userEvent.setup()
+    stubCanvas(() => 'data:image/jpeg;base64,abc')
+    stubImageLoad('onload')
+    let name = ''
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      name = this.download
+    })
+
+    renderPlants([plant('a', 'Water chestnut', 0.9)])
+    await user.click(screen.getByRole('button', { name: /Download image/ }))
+
+    await waitFor(() => expect(name).toBe('invasive-plant-check-photo.jpg'))
   })
 })

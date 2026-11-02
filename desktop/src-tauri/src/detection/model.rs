@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelInfo {
@@ -14,12 +14,36 @@ pub struct ModelInfo {
     pub architecture: String,
     pub classes: Vec<String>,
     pub display_labels: BTreeMap<String, String>,
+    /// What the model looks for, in the words the interface uses.
+    pub subject: Subject,
     pub input_size: u32,
+    /// True for a graph that picks its own boxes (YOLO26's
+    /// `(1, detections, 6)`); false for raw anchors that need NMS (YOLO11's
+    /// `(1, 4 + classes, anchors)`).
+    pub end_to_end: bool,
     pub confidence_threshold: f64,
     pub iou_threshold: f64,
     pub max_detections: usize,
     pub metrics: BTreeMap<String, f64>,
     pub sha256: String,
+}
+
+/// "1 loon" / "3 loons", as the interface counts what a model finds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Subject {
+    pub one: String,
+    pub many: String,
+}
+
+/// Models without a `subject` are loon models: every model Gavia offered
+/// before vegnet, and any retrained copy of one.
+impl Default for Subject {
+    fn default() -> Self {
+        Self {
+            one: "loon".into(),
+            many: "loons".into(),
+        }
+    }
 }
 
 impl ModelInfo {
@@ -55,7 +79,9 @@ impl ModelInfo {
             architecture: raw.architecture.unwrap_or_else(|| "unknown".into()),
             classes: raw.classes,
             display_labels: raw.display_labels.unwrap_or_default(),
+            subject: raw.subject.unwrap_or_default(),
             input_size,
+            end_to_end: raw.output.is_some_and(|o| o.end_to_end),
             confidence_threshold: raw.defaults.confidence_threshold,
             iou_threshold: raw.defaults.iou_threshold,
             max_detections: raw.defaults.max_detections,
@@ -77,7 +103,9 @@ struct Raw {
     architecture: Option<String>,
     classes: Vec<String>,
     display_labels: Option<BTreeMap<String, String>>,
+    subject: Option<Subject>,
     input: RawInput,
+    output: Option<RawOutput>,
     defaults: RawDefaults,
     metrics: Option<BTreeMap<String, serde_json::Value>>,
     sha256: Option<String>,
@@ -86,6 +114,12 @@ struct Raw {
 #[derive(Deserialize)]
 struct RawInput {
     shape: Vec<u32>,
+}
+
+#[derive(Deserialize)]
+struct RawOutput {
+    #[serde(default)]
+    end_to_end: bool,
 }
 
 #[derive(Deserialize)]
@@ -100,8 +134,12 @@ mod tests {
     use super::*;
 
     fn shipped() -> ModelInfo {
+        bundled("loon_v1")
+    }
+
+    fn bundled(id: &str) -> ModelInfo {
         ModelInfo::load(
-            &Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/models/loon_v1.json"),
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("resources/models/{id}.json")),
         )
         .unwrap()
     }
@@ -115,6 +153,19 @@ mod tests {
         assert_eq!(info.max_detections, 300);
         assert_eq!(info.classes, vec!["common loon"]);
         assert_eq!(info.sha256.len(), 64);
+        assert!(!info.end_to_end);
+        assert_eq!(info.subject, Subject::default());
+    }
+
+    #[test]
+    fn reads_the_plant_model_as_end_to_end() {
+        let info = bundled("veg_v1");
+        assert!(info.end_to_end);
+        assert_eq!(info.input_size, 640);
+        assert_eq!(info.classes.len(), 4);
+        assert_eq!(info.label_for(3), "Yellow flag iris");
+        assert_eq!(info.subject.one, "invasive plant");
+        assert_eq!(info.subject.many, "invasive plants");
     }
 
     #[test]

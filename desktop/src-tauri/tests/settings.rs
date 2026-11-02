@@ -75,7 +75,8 @@ fn starts_in_the_default_location_with_the_bundled_model() {
     assert!(!view.data_dir_locked);
     assert_eq!(PathBuf::from(&view.data_dir), f.default_dir());
     assert_eq!(view.model, "loon_v1");
-    assert_eq!(view.models.len(), 1);
+    let offered: Vec<_> = view.models.iter().map(|m| m.id.as_str()).collect();
+    assert_eq!(offered, vec!["loon_v1", "veg_v1"]);
     assert_eq!(view.model_status, "ok");
     assert_eq!(view.saved_checks, 0);
     assert!(view.models_dir.ends_with("models"));
@@ -237,6 +238,53 @@ fn custom_models_can_be_chosen_and_the_choice_is_remembered() {
             .iter()
             .any(|m| m.id == "loon_retrained" && m.custom)
     );
+}
+
+#[test]
+fn the_plant_model_finds_plants_and_history_keeps_each_models_words() {
+    let f = Fixture::new();
+    let loon_id = save_one(&f.service);
+
+    f.service.select_model("veg_v1").unwrap();
+    f.service.load_selected_model();
+    let bytes = plant_fixture("water_chestnut.jpg");
+    let request = DetectRequest {
+        file_name: Some("water_chestnut.jpg".into()),
+        ..Default::default()
+    };
+    let checked = f.service.detect(&request, &bytes).unwrap();
+    assert_eq!(checked.model_name, "Vegnet 1.0");
+    assert_eq!(checked.subject.one, "invasive plant");
+    assert!(
+        checked
+            .detections
+            .iter()
+            .any(|d| d.label == "Water chestnut"),
+        "found {:?}",
+        checked.detections
+    );
+
+    let save: SaveRequest = serde_json::from_value(serde_json::json!({
+        "id": checked.id, "fileName": "water_chestnut.jpg", "detections": checked.detections,
+        "processingTime": checked.processing_time, "imageWidth": checked.image_width,
+        "imageHeight": checked.image_height, "modelName": checked.model_name,
+        "tilesProcessed": checked.tiles_processed,
+    }))
+    .unwrap();
+    let saved = f.service.save(&save, &bytes).unwrap();
+    assert_eq!(saved.subject.many, "invasive plants");
+
+    // Switching model doesn't change what an earlier check was looking for.
+    let history = f.service.list(None, None).unwrap();
+    let subject_of = |id: &str| {
+        history
+            .iter()
+            .find(|r| r.id == id)
+            .map(|r| r.subject.one.clone())
+    };
+    assert_eq!(subject_of(&loon_id).as_deref(), Some("loon"));
+    assert_eq!(subject_of(&saved.id).as_deref(), Some("invasive plant"));
+    assert_eq!(f.service.get(&loon_id).unwrap().subject.one, "loon");
 }
 
 #[test]

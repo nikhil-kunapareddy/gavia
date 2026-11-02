@@ -1,0 +1,516 @@
+{
+ "fixtures": [
+  {
+   "file": "loosestrife.jpg",
+   "imageWidth": 600,
+   "imageHeight": 800,
+   "detections": [
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.8599660396575928,
+     "x": 20.80752690633138,
+     "y": 0.0,
+     "width": 66.16152826944986,
+     "height": 100.0
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut.jpg",
+   "imageWidth": 800,
+   "imageHeight": 600,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.7011207342147827,
+     "x": 4.094281196594238,
+     "y": 0.0,
+     "width": 95.90571880340576,
+     "height": 100.0
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris.jpg",
+   "imageWidth": 630,
+   "imageHeight": 800,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.9526095390319824,
+     "x": 38.100077311197914,
+     "y": 50.96944808959961,
+     "width": 36.22034950861855,
+     "height": 26.960880279541016
+    },
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.47223079204559326,
+     "x": 2.675371321420821,
+     "y": 0.0,
+     "width": 93.68756309388175,
+     "height": 85.61666870117188
+    }
+   ]
+  }
+ ],
+ "val": [
+  {
+   "file": "loosestrife_250894884.jpg",
+   "imageWidth": 686,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.9680100679397583,
+     "x": 16.108149759275918,
+     "y": 2.5902701541781425,
+     "width": 67.95501041690393,
+     "height": 97.40972984582186
+    }
+   ]
+  },
+  {
+   "file": "loosestrife_505029214.jpg",
+   "imageWidth": 686,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.9280686378479004,
+     "x": 0.8443279794631825,
+     "y": 0.0,
+     "width": 99.15567202053683,
+     "height": 96.68807983398438
+    }
+   ]
+  },
+  {
+   "file": "loosestrife_539267881.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.7068114876747131,
+     "x": 25.531387329101562,
+     "y": 0.0,
+     "width": 53.5901149113973,
+     "height": 98.3263611793518
+    },
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.6221752166748047,
+     "x": 59.056293964385986,
+     "y": 51.172590255737305,
+     "width": 26.460611820220947,
+     "height": 45.547670125961304
+    },
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.47439873218536377,
+     "x": 62.2532327969869,
+     "y": 51.171696186065674,
+     "width": 23.113040129343666,
+     "height": 45.10727524757385
+    }
+   ]
+  },
+  {
+   "file": "loosestrife_539269086.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.5369390845298767,
+     "x": 19.83509063720703,
+     "y": 0.0,
+     "width": 70.85923353830972,
+     "height": 100.0
+    },
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.5110385417938232,
+     "x": 20.758038759231567,
+     "y": 0.027401448460295796,
+     "width": 65.75140357017517,
+     "height": 99.9725985515397
+    }
+   ]
+  },
+  {
+   "file": "loosestrife_305988206.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": []
+  },
+  {
+   "file": "loosestrife_143504287.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Purple loosestrife",
+     "confidence": 0.7717527151107788,
+     "x": 40.062669912974044,
+     "y": 50.23840069770813,
+     "width": 14.546012878417969,
+     "height": 19.113892316818237
+    }
+   ]
+  },
+  {
+   "file": "loosestrife_2199435.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.48762252926826477,
+     "x": 1.240075503786405,
+     "y": 52.41333246231079,
+     "width": 98.75992449621359,
+     "height": 47.58666753768921
+    }
+   ]
+  },
+  {
+   "file": "phragmites_185280474.jpg",
+   "imageWidth": 576,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.9172990918159485,
+     "x": 0.04270341661241319,
+     "y": 19.58767920732498,
+     "width": 99.95729658338759,
+     "height": 80.41232079267502
+    }
+   ]
+  },
+  {
+   "file": "phragmites_445531209.jpg",
+   "imageWidth": 576,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.8912614583969116,
+     "x": 0.0,
+     "y": 68.27468276023865,
+     "width": 100.0,
+     "height": 18.20341944694519
+    },
+    {
+     "label": "Common reed",
+     "confidence": 0.8637270927429199,
+     "x": 2.2641796204778886,
+     "y": 24.154777824878693,
+     "width": 96.58015784290102,
+     "height": 42.584048211574554
+    }
+   ]
+  },
+  {
+   "file": "phragmites_452299838.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.6743393540382385,
+     "x": 4.401230812072754,
+     "y": 34.728050231933594,
+     "width": 93.42003464698792,
+     "height": 63.956705729166664
+    }
+   ]
+  },
+  {
+   "file": "phragmites_452299903.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.5042728185653687,
+     "x": 13.327613472938538,
+     "y": 46.740786234537765,
+     "width": 86.67238652706146,
+     "height": 20.24970849355062
+    }
+   ]
+  },
+  {
+   "file": "phragmites_239677243.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.9056316018104553,
+     "x": 3.4252325693766275,
+     "y": 8.674223721027374,
+     "width": 95.44832706451416,
+     "height": 91.32577627897263
+    }
+   ]
+  },
+  {
+   "file": "phragmites_115874371.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": []
+  },
+  {
+   "file": "phragmites_139986218.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 683,
+   "detections": [
+    {
+     "label": "Common reed",
+     "confidence": 0.8945056200027466,
+     "x": 4.038600996136665,
+     "y": 20.221032160791086,
+     "width": 92.90504567325115,
+     "height": 46.76557906724698
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut_212065938.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.7708539962768555,
+     "x": 23.833576838175453,
+     "y": 24.66970980167389,
+     "width": 44.10980542500813,
+     "height": 45.659586787223816
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut_430019541.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.9182098507881165,
+     "x": 20.896963278452553,
+     "y": 21.847963333129883,
+     "width": 70.27753591537476,
+     "height": 40.98554849624634
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut_45364993.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.6836618781089783,
+     "x": 4.111209139227867,
+     "y": 0.0,
+     "width": 95.88879086077213,
+     "height": 100.0
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut_49618248.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.7938682436943054,
+     "x": 10.666027665138245,
+     "y": 16.43224209547043,
+     "width": 87.20562557379404,
+     "height": 51.07167512178421
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut_22570377.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": []
+  },
+  {
+   "file": "water_chestnut_135416326.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 683,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.8516466617584229,
+     "x": 12.154150009155273,
+     "y": 9.072094047401173,
+     "width": 81.52580261230469,
+     "height": 82.6089482007229
+    }
+   ]
+  },
+  {
+   "file": "water_chestnut_161979508.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": [
+    {
+     "label": "Water chestnut",
+     "confidence": 0.4342716336250305,
+     "x": 42.204076051712036,
+     "y": 43.80418062210083,
+     "width": 14.39579725265503,
+     "height": 20.13524373372396
+    },
+    {
+     "label": "Water chestnut",
+     "confidence": 0.2727319300174713,
+     "x": 42.48628616333008,
+     "y": 44.331272443135575,
+     "width": 15.17147421836853,
+     "height": 19.801668326059975
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_199840188.jpg",
+   "imageWidth": 807,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.9513131380081177,
+     "x": 38.06223059823227,
+     "y": 50.95735788345337,
+     "width": 36.16160944639677,
+     "height": 27.00217366218567
+    },
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.4893134534358978,
+     "x": 2.594304232496902,
+     "y": 0.0,
+     "width": 92.86532301589607,
+     "height": 85.24921536445618
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_331388607.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 768,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.8504734039306641,
+     "x": 3.141679987311363,
+     "y": 0.17809549657007057,
+     "width": 91.71220995485783,
+     "height": 98.00562382054827
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_386066208.jpg",
+   "imageWidth": 1024,
+   "imageHeight": 683,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.8833988904953003,
+     "x": 21.43985480070114,
+     "y": 17.465169747437777,
+     "width": 53.624071180820465,
+     "height": 67.69221516688782
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_42153505.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.6226597428321838,
+     "x": 6.650142868359883,
+     "y": 4.946136474609375,
+     "width": 86.9442174832026,
+     "height": 91.77700877189636
+    },
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.2798510789871216,
+     "x": 19.334036111831665,
+     "y": 5.4965924471616745,
+     "width": 74.00133013725281,
+     "height": 82.65516646206379
+    },
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.2669605612754822,
+     "x": 25.29282569885254,
+     "y": 6.25758171081543,
+     "width": 46.65704568227132,
+     "height": 48.80862236022949
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_215785689.jpg",
+   "imageWidth": 1000,
+   "imageHeight": 667,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.4145703613758087,
+     "x": 14.32431640625,
+     "y": 15.250474509449377,
+     "width": 55.93062744140626,
+     "height": 78.95854280806374
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_118512810.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.9694757461547852,
+     "x": 10.506629943847656,
+     "y": 18.041515350341797,
+     "width": 89.49337005615234,
+     "height": 76.53356790542603
+    }
+   ]
+  },
+  {
+   "file": "yellow_iris_160593856.jpg",
+   "imageWidth": 768,
+   "imageHeight": 1024,
+   "detections": [
+    {
+     "label": "Yellow flag iris",
+     "confidence": 0.7773647308349609,
+     "x": 5.925270915031433,
+     "y": 7.273855060338974,
+     "width": 93.3633436759313,
+     "height": 91.67914763092995
+    }
+   ]
+  }
+ ]
+}

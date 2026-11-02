@@ -24,6 +24,8 @@ Gavia is a desktop app for loon research and conservation work. Open a photo, an
 
 It is built to support expert judgment, not to replace it. Every result is meant to be reviewed by a person who knows loons.
 
+**Invasive plants too.** The **Model** menu on Check an image switches from loons to Vegnet, which looks for four invasive lake plants (purple loosestrife, common reed, water chestnut and yellow flag iris) and names the species on each box.
+
 Gavia does all its work on your own computer. It **works without internet**, it's **free**, and **your photos never leave your machine**.
 
 ## How it works
@@ -43,7 +45,7 @@ Gavia does all its work on your own computer. It **works without internet**, it'
 | **Cost** | Free | Often per image or per month |
 | **Account** | Not needed | Usually required |
 
-- **💻 Runs on an ordinary laptop.** No GPU, no server, a download of about 70 MB with both models.
+- **💻 Runs on an ordinary laptop.** No GPU, no server, a download of about 105 MB with all three models.
 - **🎯 Measured.** On the `loonnet_v1` validation photos, Gavia finds 88% of labelled loons, and 91% of the boxes it draws are real loons (details below).
 - **🗂️ Keeps a record.** The original photo is saved byte-for-byte next to the boxes, exactly as the reviewer saw them.
 - **🧭 Honest about uncertainty.** Every box shows a confidence score, so you can see which ones deserve a closer look.
@@ -95,9 +97,21 @@ The current model, Loonet 1.0 (`loon_v1`), is a YOLO11s detector trained on the 
 | --- | --- | --- |
 | 0.906 | 0.879 | 0.891 |
 
-To try a retrained model, put its `.onnx` and `.json` files in the `models` folder inside the storage location. A choice of model then appears in **Settings → Detection model**.
-
 It's an early model trained on a small dataset. Use its confidence scores as a starting point for review, not as the answer. It's trained on common loons only.
+
+The invasive plant model, Vegnet 1.0 (`veg_v1`), is a YOLO26s detector trained on 132 iNaturalist photos. A box marks a stand of one species, not a single plant. On its validation split (28 photos, 32 labelled stands), checked the same way:
+
+| Species | Precision | Recall | AP@0.5 |
+| --- | --- | --- | --- |
+| Water chestnut | 0.857 | 0.750 | 0.959 |
+| Common reed | 0.750 | 0.857 | 0.796 |
+| Yellow flag iris | 0.500 | 0.556 | 0.587 |
+| Purple loosestrife | 0.500 | 0.500 | 0.536 |
+| **Mean** | **0.652** | **0.666** | **0.720** |
+
+Its training and validation boxes were drafted by a model (Grounding DINO) and reviewed by a person rather than drawn by hand, and seven photos per species is very few, so these numbers will move a lot with more data.
+
+To try a retrained model, put its `.onnx` and `.json` files in the `models` folder inside the storage location. It then appears in the **Model** menu.
 
 </details>
 
@@ -155,7 +169,7 @@ Gavia is growing from one task into a set of tools for loon habitat work. The re
 3. **Acoustic Common Loon call classifier**
 4. **Shoreline/wetland change detection**
 5. **Underwater habitat structure classifier**
-6. **Invasive vegetation classifier**
+6. **Invasive vegetation classifier** (four lake plants in photos now)
 
 The **[roadmap](ROADMAP.md)** has the status of each and what it needs, plus signed installers and the rest.
 
@@ -174,7 +188,7 @@ Start with the **[contributing guide](CONTRIBUTING.md)**. It explains how to set
 
 ## Licence
 
-AGPL-3.0. The detector is derived from Ultralytics YOLO11, which is AGPL-3.0, and that obligation carries to anything distributed with these weights. See [LICENSE](LICENSE).
+AGPL-3.0. The photo models are derived from Ultralytics YOLO11 and YOLO26, which are AGPL-3.0, and that obligation carries to anything distributed with these weights. See [LICENSE](LICENSE).
 
 The loon call model contains [BirdNET 2.4](https://github.com/birdnet-team/BirdNET-Analyzer), which is licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) by the K. Lisa Yang Center for Conservation Bioacoustics, so it may be used for non-commercial purposes only. Its provenance and licence are in `desktop/src-tauri/resources/calls/looncall_v1.json`.
 

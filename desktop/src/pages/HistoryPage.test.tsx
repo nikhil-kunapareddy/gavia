@@ -26,6 +26,7 @@ function result(id: string, overrides: Partial<DetectionResult> = {}): Detection
     imageWidth: 4000,
     imageHeight: 3000,
     modelName: 'loon_v1',
+    subject: { one: 'loon', many: 'loons' },
     tilesProcessed: 1,
     saved: true,
     ...overrides,
@@ -113,6 +114,20 @@ describe('listing saved checks', () => {
   it('uses the singular for one loon', () => {
     renderPage([result('a', { detections: [detection(0.9)] })])
     expect(screen.getByText(/^1 loon ·/)).toBeInTheDocument()
+  })
+
+  it('speaks of what each saved check was looking for', () => {
+    const plants = { one: 'invasive plant', many: 'invasive plants' }
+    renderPage([
+      result('reeds', { subject: plants, detections: [detection(0.88), detection(0.7)] }),
+      result('shore', { subject: plants }),
+      result('lake', { detections: [detection(0.9)] }),
+    ])
+
+    expect(screen.getByText('2 invasive plants · 88% highest confidence')).toBeInTheDocument()
+    expect(screen.getByText('Invasive plant detected')).toBeInTheDocument()
+    expect(screen.getByText('No invasive plant detected')).toBeInTheDocument()
+    expect(screen.getByText('Loon detected')).toBeInTheDocument()
   })
 
   it('distinguishes a clear result from a detection', () => {

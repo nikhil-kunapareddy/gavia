@@ -48,6 +48,7 @@ function makeSettings(overrides: Partial<AppSettings> = {}): AppSettings {
         name: 'Loonet 1.0',
         architecture: 'YOLO11s',
         classes: ['common loon'],
+        subject: { one: 'loon', many: 'loons' },
         metrics: { precision: 0.906, recall: 0.879, mAP50: 0.892 },
         custom: false,
       },
@@ -56,6 +57,7 @@ function makeSettings(overrides: Partial<AppSettings> = {}): AppSettings {
         name: 'loon_v2',
         architecture: 'YOLO11m',
         classes: ['common loon'],
+        subject: { one: 'loon', many: 'loons' },
         metrics: {},
         custom: true,
       },
@@ -236,10 +238,11 @@ describe('detection model', () => {
   })
 
   it('offers a choice once a second model is added', async () => {
-    await openSettings()
-    const select = screen.getByRole('combobox', { name: 'Model' })
-    expect(select).toHaveValue('loon_v1')
-    expect(screen.getByRole('option', { name: 'loon_v2 (added)' })).toBeInTheDocument()
+    const user = await openSettings()
+    const menu = screen.getByRole('combobox', { name: 'Model' })
+    expect(menu).toHaveTextContent('Loonet 1.0')
+    await user.click(menu)
+    expect(screen.getByRole('option', { name: 'loon_v2 (added) · Loons' })).toBeInTheDocument()
   })
 
   it('switches model and waits for it to load', async () => {
@@ -249,12 +252,28 @@ describe('detection model', () => {
     )
     vi.mocked(getSettings).mockResolvedValue(makeSettings({ model: 'loon_v2' }))
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Model' }), 'loon_v2')
+    await user.click(screen.getByRole('combobox', { name: 'Model' }))
+    await user.click(screen.getByRole('option', { name: 'loon_v2 (added) · Loons' }))
 
     expect(selectModel).toHaveBeenCalledWith('loon_v2')
     expect(await screen.findByText('Loading…')).toBeInTheDocument()
     await waitForElementToBeRemoved(() => screen.queryByText('Loading…'), { timeout: 3000 })
-    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('loon_v2')
+    expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent('loon_v2')
+  })
+
+  it('can be chosen on the Check page too, with a failure shown there', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(selectModel).mockRejectedValue(new Error('core down'))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('combobox', { name: 'Model' }))
+    await user.click(screen.getByRole('option', { name: 'loon_v2 (added) · Loons' }))
+
+    expect(selectModel).toHaveBeenCalledWith('loon_v2')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That model could not be chosen. Please try again.',
+    )
   })
 
   it('says so when a model fails to load', async () => {

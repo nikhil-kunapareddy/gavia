@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { LOONS } from '../lib/format'
 import type { BatchBusy, BatchItem } from '../types/batch'
 import type { DetectionResult } from '../types/detection'
 import { BatchPage } from './BatchPage'
@@ -35,6 +36,7 @@ function result(loons: number, saved = false): DetectionResult {
     imageWidth: 10,
     imageHeight: 10,
     modelName: 'loon_v1',
+    subject: { one: 'loon', many: 'loons' },
     tilesProcessed: 1,
     saved,
   }
@@ -51,7 +53,17 @@ function item(name: string, overrides: Partial<BatchItem> = {}): BatchItem {
 }
 
 function renderPage(items: BatchItem[], busy: BatchBusy = null, extra = {}) {
-  return render(<BatchPage items={items} busy={busy} notice="" error="" {...handlers} {...extra} />)
+  return render(
+    <BatchPage
+      items={items}
+      subject={LOONS}
+      busy={busy}
+      notice=""
+      error=""
+      {...handlers}
+      {...extra}
+    />,
+  )
 }
 
 const waiting = () => [item('a.jpg'), item('b.jpg'), item('c.jpg')]
@@ -122,7 +134,16 @@ describe('while checking', () => {
     await user.click(screen.getByRole('button', { name: /Stop/ }))
     expect(handlers.onStop).toHaveBeenCalledTimes(1)
 
-    rerender(<BatchPage items={running()} busy="stopping" notice="" error="" {...handlers} />)
+    rerender(
+      <BatchPage
+        items={running()}
+        subject={LOONS}
+        busy="stopping"
+        notice=""
+        error=""
+        {...handlers}
+      />,
+    )
     expect(screen.getByRole('button', { name: /Stopping/ })).toBeDisabled()
   })
 
@@ -174,7 +195,9 @@ describe('once checked', () => {
     expect(screen.getByRole('button', { name: /Saving…/ })).toBeDisabled()
 
     const saved = [item('a.jpg', { status: 'done', result: result(1, true) })]
-    rerender(<BatchPage items={saved} busy={null} notice="" error="" {...handlers} />)
+    rerender(
+      <BatchPage items={saved} subject={LOONS} busy={null} notice="" error="" {...handlers} />,
+    )
     expect(screen.getByRole('button', { name: /Saved to history/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /a.jpg 1 loon · 90% · Saved/ })).toBeEnabled()
     expect(screen.queryByRole('button', { name: /Check/ })).not.toBeInTheDocument()
@@ -198,5 +221,33 @@ describe('once checked', () => {
   it('speaks of one image in the singular', () => {
     renderPage([item('a.jpg', { status: 'done', result: result(1) }), item('b.jpg')])
     expect(screen.getByRole('heading', { name: 'Loons in 1 of 1 image' })).toBeInTheDocument()
+  })
+})
+
+describe('with another model', () => {
+  const plants = { one: 'invasive plant', many: 'invasive plants' }
+
+  it('speaks of what the chosen model looks for before anything is checked', () => {
+    renderPage([item('a.jpg')], null, { subject: plants })
+    expect(screen.getByRole('heading', { name: '1 image to check' })).toBeInTheDocument()
+  })
+
+  it('sums up in the words of the results', () => {
+    const planted = (count: number) => ({ ...result(count), subject: plants })
+    // The menu has moved on to loons since; the batch still reads as plants.
+    renderPage(
+      [
+        item('a.jpg', { status: 'done', result: planted(2) }),
+        item('b.jpg', { status: 'done', result: planted(0) }),
+      ],
+      null,
+      { subject: LOONS },
+    )
+
+    expect(
+      screen.getByRole('heading', { name: 'Invasive plants in 1 of 2 images' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /b.jpg No invasive plant detected/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Save 1 with invasive plants/ })).toBeEnabled()
   })
 })
