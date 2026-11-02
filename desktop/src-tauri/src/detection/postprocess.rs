@@ -81,6 +81,56 @@ pub fn decode(
     found
 }
 
+/// The values an end-to-end detection carries: corners, score, class.
+pub const END_TO_END_COLUMNS: usize = 6;
+
+/// Decode one tile's output from an end-to-end model into original-image
+/// pixel boxes.
+///
+/// `output` is the model's `(1, detections, 6)` tensor flattened, one row per
+/// box: `x1, y1, x2, y2, score, class` in letterboxed pixels. The model has
+/// already chosen its boxes (YOLO26's one-to-one head), so there is nothing to
+/// suppress; rows below the threshold are the unused remainder of its top 300.
+/// `f32` arithmetic for the same reason as [`decode`].
+pub fn decode_end_to_end(
+    output: &[f32],
+    detections: usize,
+    tile: &Letterbox,
+    confidence_threshold: f64,
+) -> Vec<RawDetection> {
+    assert_eq!(
+        output.len(),
+        detections * END_TO_END_COLUMNS,
+        "output length does not match its shape"
+    );
+    let inv = (1.0 / tile.scale) as f32;
+    let (pad_x, pad_y) = (tile.pad_x as f32, tile.pad_y as f32);
+    let (origin_x, origin_y) = (tile.origin_x as f32, tile.origin_y as f32);
+    let threshold = confidence_threshold as f32;
+    let map_x = |v: f32| f64::from((v - pad_x) * inv + origin_x);
+    let map_y = |v: f32| f64::from((v - pad_y) * inv + origin_y);
+
+    output
+        .as_chunks::<END_TO_END_COLUMNS>()
+        .0
+        .iter()
+        .filter(|&&[.., score, _]| score >= threshold)
+        .map(|&[x1, y1, x2, y2, score, class]| RawDetection {
+            x1: map_x(x1),
+            y1: map_y(y1),
+            x2: map_x(x2),
+            y2: map_y(y2),
+            score: f64::from(score),
+            // A class index as a float; anything odd becomes an unknown class.
+            class_id: if class >= 0.0 {
+                class.round() as usize
+            } else {
+                usize::MAX
+            },
+        })
+        .collect()
+}
+
 /// Greedy NMS, highest score first, class-agnostic.
 ///
 /// Class-agnostic is free with one class, and is the behaviour we want if a
@@ -239,6 +289,42 @@ mod tests {
         let d = decode(&out, 6, 1, &identity(), 0.25);
         assert_eq!(d[0].class_id, 1);
         assert!((d[0].score - 0.7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn end_to_end_rows_are_corners_score_class() {
+        let out = [
+            80.0, 190.0, 120.0, 210.0, 0.9, 2.0, // kept
+            0.0, 0.0, 5.0, 5.0, 0.1, 0.0, // below the threshold
+        ];
+        let d = decode_end_to_end(&out, 2, &identity(), 0.25);
+        assert_eq!(d.len(), 1);
+        assert_eq!(
+            (d[0].x1, d[0].y1, d[0].x2, d[0].y2, d[0].class_id),
+            (80.0, 190.0, 120.0, 210.0, 2)
+        );
+        assert!((d[0].score - 0.9).abs() < 1e-6);
+    }
+
+    #[test]
+    fn end_to_end_undoes_the_letterbox_as_anchors_do() {
+        let tile = Letterbox {
+            origin_x: 100,
+            origin_y: 50,
+            scale: 0.5,
+            pad_x: 0.0,
+            pad_y: 160.0,
+        };
+        let out = [288.0, 304.0, 352.0, 336.0, 0.8, 0.0];
+        let d = decode_end_to_end(&out, 1, &tile, 0.25)[0];
+        assert_eq!((d.x1, d.y1, d.x2, d.y2), (676.0, 338.0, 804.0, 402.0));
+    }
+
+    #[test]
+    fn end_to_end_negative_class_is_unknown() {
+        let out = [0.0, 0.0, 5.0, 5.0, 0.9, -1.0];
+        let d = decode_end_to_end(&out, 1, &identity(), 0.25);
+        assert_eq!(d[0].class_id, usize::MAX);
     }
 
     #[test]

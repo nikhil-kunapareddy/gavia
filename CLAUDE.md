@@ -5,11 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Gavia finds loons in field photographs: open an image, get bounding boxes with
-confidence scores, keep the ones worth keeping. It also listens for loon calls
-in recordings (**Check an audio**): a probability for every 3 s window. One
-Tauri 2 app for macOS (Apple Silicon), Windows and Linux: a React 18 +
-TypeScript interface (Vite, Tailwind) over a Rust core that runs YOLO11s (and
-BirdNET for calls) through ONNX Runtime (`ort`).
+confidence scores, keep the ones worth keeping. A **Model** menu on the Check
+page swaps in vegnet, which boxes four invasive lake plants instead. It also
+listens for loon calls in recordings (**Check an audio**): a probability for
+every 3 s window. One Tauri 2 app for macOS (Apple Silicon), Windows and
+Linux: a React 18 + TypeScript interface (Vite, Tailwind) over a Rust core that
+runs YOLO11s (loons), YOLO26s (plants) and BirdNET (calls) through ONNX
+Runtime (`ort`).
 Offline except for an update check at startup, which Settings can turn off.
 There was a Python/FastAPI backend until the Rust port; it is gone, and `src-tauri/tests/fixtures/python_reference.json` is what remains of it.
 
@@ -40,15 +42,21 @@ cargo test --test workflow          # Service end to end: detect, save, list, as
 cargo test --test parity            # vs Python reference; needs the loonnet dataset
 cargo test --test calls             # call model on every audio container, vs Python
 cargo test --test call_parity       # call model on the looncall val split; needs loonet's audio
+cargo test --test plants            # vegnet vs Python on fixtures (+ its val split if present)
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 cargo run --release --example evaluate -- --split ~/Documents/loonet/data/annotated/loonnet_v1/val.txt
+cargo run --release --example evaluate -- --split ~/Documents/loonet/data/annotated/vegnet_v1/val.txt \
+    --model resources/models/veg_v1.onnx   # per class, plus the mean
 ```
 
 The call model is rebuilt from loonet by two Python scripts in `desktop/scripts/`
 (each docstring says which environment it needs): `export_looncall.py` writes
 `resources/calls/looncall_v1.{onnx,json}` and checks it against TFLite;
 `looncall_reference.py` rewrites `tests/fixtures/looncall_reference.json`.
+vegnet likewise: `export_vegnet.py` writes `resources/models/veg_v1.{onnx,json}`
+(checked against PyTorch), and `vegnet_reference.py` rewrites
+`tests/fixtures/vegnet_reference.json` with Gavia's pipeline in Python.
 
 `tauri::generate_context!` embeds `../dist`, so `cargo` commands need a built
 frontend (`npx vite build`) on a fresh checkout. `npm run app` builds it for you.
@@ -83,8 +91,13 @@ still works and `detect` returns `MODEL_UNAVAILABLE`.
 **`detection/` is pure** and owns what Ultralytics would otherwise do:
 `loader` (sniff, EXIF, bomb guard, decode), `preprocess` (letterbox, tile plan),
 `detector` (the ORT session), `postprocess` (decode, NMS, clamp, percentages).
-The model's `(1, 5, 8400)` output is centre/size in letterboxed pixels; every
-step back to the original image happens in `postprocess::decode`.
+Two output layouts, picked by `output.end_to_end` in the model's `.json`:
+YOLO11's `(1, 4 + classes, 8400)` anchors (centre/size, then class-agnostic
+NMS) through `postprocess::decode`, and YOLO26's `(1, 300, 6)` boxes
+(`x1, y1, x2, y2, score, class`, already chosen by the model, so no NMS unless
+tiled) through `decode_end_to_end`. Both are in letterboxed pixels. Warm-up
+checks the real output shape against the `.json`, so a mislabelled model fails
+to load rather than every check.
 
 **Parity with the Python pipeline is deliberate and tested.** The model's
 accuracy was measured on the pixels Pillow produced, so the port matches them:
@@ -99,6 +112,14 @@ loosen those tolerances to make a change pass — find out why it moved.
 jpeg-decoder's scaled IDCT. The scaled IDCT upsamples chroma differently and
 was measured at mean error 1.2 levels (max 34) against Pillow's draft; the box
 average is 0.33 (max 10). The price is briefly holding the full-size image.
+
+**Each photo model says what it looks for.** `subject` in its `.json`
+(`{"one": "invasive plant", "many": "invasive plants"}`; absent means loons)
+reaches the UI as `ModelEntry.subject` and `DetectionResult.subject`, and all
+wording ("2 loons detected", "No invasive plant detected", batch and history
+summaries) comes from it, never a hard-coded "loon". Saved results don't store
+it: `to_wire` looks the model up by `model_name`, so a result whose model has
+gone reads as a loon check. Box labels are each class's `display_labels`.
 
 **Boxes are percentages (0–100), never pixels**, from `postprocess` through the
 commands to the CSS in `DetectionOverlay`. `imageWidth`/`imageHeight` are always
@@ -152,7 +173,9 @@ deletes the original. A destination with a `gavia.db` is reopened instead of
 moved into, and a non-empty folder gets a `Gavia/` subfolder. Models are every
 `.onnx` + `.json` pair in the bundled `resources/models` plus
 `<storage>/models`; switching sets the slot to `starting` and reloads on a
-thread. The theme is not a core setting: `src/lib/theme.ts` keeps it in
+thread. The same choice is the **Model** menu on the Check page
+(`components/ModelPicker.tsx`, used by both pages), so `App` loads settings
+whenever the Check page shows. The theme is not a core setting: `src/lib/theme.ts` keeps it in
 `localStorage` and sets `data-theme` on `<html>` in `main.tsx` before the first
 render; every colour in `index.css` is a variable on `:root` /
 `:root[data-theme='dark']` except the detection boxes, which stay red on photos.
@@ -211,7 +234,10 @@ presentational. No router — `page` is a `Page` state value.
   images in `tests/fixtures/images/` (EXIF orientations 1–8, MPO, PNG, WebP).
 - **Rust integration** (`tests/`) — `model.rs` is the only thing that catches a
   bad model export (`calls.rs` for the call model, against Python numbers for
-  one clip per container in `tests/fixtures/audio/`); `call_parity.rs` skips
+  one clip per container in `tests/fixtures/audio/`; `plants.rs` for vegnet and
+  the only run of `decode_end_to_end`, against `vegnet_reference.json` on the
+  photos in `tests/fixtures/plants/` and, when present, the vegnet_v1 val split
+  or `GAVIA_VEGNET_SPLIT`); `call_parity.rs` skips
   like `parity.rs` unless loonet's `data/looncall_raw` is there; `workflow.rs`
   is the contract `src/services/` relies on; `parity.rs` skips unless the loonnet val split is at the default path or
   `GAVIA_VAL_SPLIT`, so it never runs in CI.
@@ -279,7 +305,13 @@ may bypass the approval in pull-request mode).
   the README documents the workaround.
 - Dependencies build without debug info (`[profile.dev.package."*"]`); a debug
   build of Tauri plus ORT is several GB otherwise.
-- The model is AGPL-3.0 (inherited from Ultralytics YOLO11) and so is this repo.
+- The photo models are AGPL-3.0 (inherited from Ultralytics YOLO11 and YOLO26)
+  and so is this repo.
+- vegnet runs through the same Pillow-style letterbox as the loon model, not
+  Ultralytics' cv2 one it was trained with. Measured with the same scoring on
+  its val split: mean AP@0.5 0.720 here, 0.731 through Ultralytics' square
+  ONNX pipeline (about one box on 32). Ultralytics' own report (0.80) uses a
+  rectangular letterbox and a different AP, so don't compare against it.
 - The call model contains BirdNET 2.4, which is **CC BY-NC-SA 4.0
   (non-commercial)**; its `.json` says so. BirdNET's spectrogram takes the real
   part of an RFFT, which tf2onnx can't convert; `export_looncall.py` swaps in
@@ -292,4 +324,7 @@ may bypass the approval in pull-request mode).
 metrics and a checksum; `model_info` reports it, so claims cannot drift from the
 loaded weights. Swapping in a retrained model is a two-file drop-in. Current:
 P 0.906 / R 0.879 / AP@0.5 0.891 on the `loonnet_v1` val split (0.892 under the
-Python pipeline). Training lives in the separate `loonet` repo.
+Python pipeline). `veg_v1` (Vegnet 1.0, YOLO26s, 4 classes): mean AP@0.5 0.720
+on the `vegnet_v1` val split, per class 0.96 water chestnut, 0.80 common reed,
+0.59 yellow flag iris, 0.54 purple loosestrife; its boxes are Grounding DINO
+drafts, reviewed. Training lives in the separate `loonet` repo.

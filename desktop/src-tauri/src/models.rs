@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::detection::ModelInfo;
+use crate::detection::{ModelInfo, Subject};
 
 /// The model used when nothing else has been chosen.
 pub const DEFAULT_MODEL: &str = "loon_v1";
@@ -23,6 +23,7 @@ pub struct ModelEntry {
     pub name: String,
     pub architecture: String,
     pub classes: Vec<String>,
+    pub subject: Subject,
     pub metrics: BTreeMap<String, f64>,
     /// False for models shipped with the app, true for ones the user added.
     pub custom: bool,
@@ -64,6 +65,7 @@ fn scan(dir: &Path, custom: bool) -> Vec<ModelEntry> {
                     name: info.name,
                     architecture: info.architecture,
                     classes: info.classes,
+                    subject: info.subject,
                     metrics: info.metrics,
                     custom,
                     path,
@@ -98,12 +100,14 @@ mod tests {
     }
 
     #[test]
-    fn finds_the_bundled_model() {
+    fn finds_the_bundled_models() {
         let models = discover(&bundled(), Path::new("/nonexistent"));
-        assert_eq!(models.len(), 1);
-        assert_eq!(models[0].id, DEFAULT_MODEL);
-        assert!(!models[0].custom);
-        assert!(models[0].metrics.contains_key("precision"));
+        let ids: Vec<_> = models.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(ids, vec![DEFAULT_MODEL, "veg_v1"]);
+        assert!(models.iter().all(|m| !m.custom));
+        assert!(models.iter().all(|m| m.metrics.contains_key("precision")));
+        assert_eq!(models[0].subject.many, "loons");
+        assert_eq!(models[1].subject.many, "invasive plants");
     }
 
     #[test]
@@ -119,6 +123,7 @@ mod tests {
             ids,
             vec![
                 ("loon_v1".into(), false),
+                ("veg_v1".into(), false),
                 ("aa_retrained".into(), true),
                 ("zz_retrained".into(), true)
             ]
@@ -130,6 +135,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("orphan.onnx"), b"weights").unwrap();
         add_model(dir.path(), DEFAULT_MODEL);
-        assert_eq!(discover(&bundled(), dir.path()).len(), 1);
+        assert_eq!(discover(&bundled(), dir.path()).len(), 2);
     }
 }

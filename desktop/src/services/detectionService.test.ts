@@ -33,6 +33,7 @@ function detectionResult(overrides = {}) {
     imageWidth: 4282,
     imageHeight: 2335,
     modelName: 'loon_v1',
+    subject: { one: 'loon', many: 'loons' },
     tilesProcessed: 1,
     saved: false,
     ...overrides,

@@ -28,6 +28,7 @@ type SaveMeta = Pick<
   | 'imageWidth'
   | 'imageHeight'
   | 'modelName'
+  | 'subject'
   | 'tilesProcessed'
 >
 
@@ -40,7 +41,17 @@ const PREVIEW_MODELS: AppSettings['models'] = [
     name: 'Loonet 1.0',
     architecture: 'YOLO11s',
     classes: ['common loon'],
+    subject: { one: 'loon', many: 'loons' },
     metrics: { precision: 0.906, recall: 0.879, mAP50: 0.892 },
+    custom: false,
+  },
+  {
+    id: 'veg_v1',
+    name: 'Vegnet 1.0',
+    architecture: 'YOLO26s',
+    classes: ['purple loosestrife', 'common reed', 'water chestnut', 'yellow flag iris'],
+    subject: { one: 'invasive plant', many: 'invasive plants' },
+    metrics: { precision: 0.852, recall: 0.774, mAP50: 0.798 },
     custom: false,
   },
   {
@@ -48,10 +59,22 @@ const PREVIEW_MODELS: AppSettings['models'] = [
     name: 'loon_retrained',
     architecture: 'YOLO11s',
     classes: ['common loon'],
+    subject: { one: 'loon', many: 'loons' },
     metrics: { precision: 0.91, recall: 0.9 },
     custom: true,
   },
 ]
+
+/** What each preview model calls its boxes. */
+const PREVIEW_LABELS: Record<string, string[]> = {
+  loon_v1: ['Loon'],
+  veg_v1: ['Purple loosestrife', 'Common reed', 'Water chestnut', 'Yellow flag iris'],
+  loon_retrained: ['Loon'],
+}
+
+function chosenModel() {
+  return PREVIEW_MODELS.find((model) => model.id === previewSettings.model) ?? PREVIEW_MODELS[0]
+}
 
 const previewSettings: AppSettings = {
   dataDir: '~/Library/Application Support/Gavia',
@@ -75,13 +98,13 @@ function body(args: Args | undefined): Uint8Array {
   throw new ApiError('INVALID_REQUEST', 'Expected the file as a binary body.', 422)
 }
 
-function sampleDetections(id: string) {
+function sampleDetections(id: string, labels: string[]) {
   // Deterministic per id, so the same check looks the same on re-render.
   const seed = [...id].reduce((sum, c) => sum + c.charCodeAt(0), 0)
   const count = seed % 3
   return Array.from({ length: count }, (_, index) => ({
     id: `${id}-${index}`,
-    label: 'Loon',
+    label: labels[(seed + index) % labels.length],
     confidence: 0.55 + ((seed + index * 17) % 40) / 100,
     boundingBox: { x: 12 + index * 38, y: 30 + (index % 2) * 12, width: 26, height: 22 },
   }))
@@ -118,18 +141,20 @@ export async function previewCall<T>(command: string, args?: Args): Promise<T> {
         throw new ApiError('UNSUPPORTED_FORMAT', `${meta.contentType} is not supported.`, 415)
       }
       const id = crypto.randomUUID().replace(/-/g, '')
+      const model = chosenModel()
       const result: DetectionResult = {
         id,
         imageUrl: '',
         thumbnailUrl: '',
         fileName: meta.fileName ?? 'upload',
         fileSize: bytes.length,
-        detections: sampleDetections(id),
+        detections: sampleDetections(id, PREVIEW_LABELS[model.id] ?? ['Loon']),
         processingTime: 0.35,
         timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00'),
         imageWidth: 4000,
         imageHeight: 3000,
-        modelName: 'Loonet 1.0 (browser preview)',
+        modelName: `${model.name} (browser preview)`,
+        subject: model.subject,
         tilesProcessed: 1,
         saved: false,
       }

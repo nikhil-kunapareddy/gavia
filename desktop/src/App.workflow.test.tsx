@@ -21,6 +21,7 @@ interface StoredRow {
   id: string
   fileName: string
   detections: unknown[]
+  modelName: string
 }
 
 type Handler = (command: string, payload?: unknown) => unknown
@@ -29,6 +30,30 @@ type Handler = (command: string, payload?: unknown) => unknown
 function rejectWith(value: unknown): never {
   throw value
 }
+
+/** The bundled photo models, shaped like `ModelEntry` in models.rs. */
+const MODELS = [
+  {
+    id: 'loon_v1',
+    name: 'Loonet 1.0',
+    architecture: 'YOLO11s',
+    classes: ['common loon'],
+    subject: { one: 'loon', many: 'loons' },
+    metrics: { precision: 0.93 },
+    custom: false,
+    label: 'Loon',
+  },
+  {
+    id: 'veg_v1',
+    name: 'Vegnet 1.0',
+    architecture: 'YOLO26s',
+    classes: ['purple loosestrife', 'common reed', 'water chestnut', 'yellow flag iris'],
+    subject: { one: 'invasive plant', many: 'invasive plants' },
+    metrics: { precision: 0.85 },
+    custom: false,
+    label: 'Purple loosestrife',
+  },
+]
 
 /** A minimal in-memory stand-in for the core's detect/save/history commands. */
 function fakeCore({
@@ -40,29 +65,47 @@ function fakeCore({
   const saved: StoredRow[] = []
   const calls: string[] = []
   let nextId = 0
+  let chosen = MODELS[0]
 
-  function detectionList(count: number, prefix: string) {
+  /** Shaped like `SettingsView` in service.rs. */
+  function settings(status = 'ok') {
+    return {
+      dataDir: '/data',
+      defaultDataDir: '/data',
+      isDefaultDataDir: true,
+      dataDirLocked: false,
+      modelsDir: '/data/models',
+      model: chosen.id,
+      models: MODELS.map(({ label: _label, ...entry }) => entry),
+      modelStatus: status,
+      savedChecks: saved.length,
+      version: '0.4.0',
+    }
+  }
+
+  function detectionList(count: number, prefix: string, model = chosen) {
     return Array.from({ length: count }, (_, index) => ({
       id: `${prefix}-${index}`,
-      label: 'Loon',
+      label: model.label,
       confidence: 0.94 - index * 0.1,
       boundingBox: { x: 10 + index * 20, y: 15, width: 18, height: 22 },
     }))
   }
 
-  function result(id: string, fileName: string, count: number, isSaved: boolean) {
+  function result(id: string, fileName: string, count: number, isSaved: boolean, model = chosen) {
     return {
       id,
       imageUrl: isSaved ? `gavia://localhost/results/${id}/image` : '',
       thumbnailUrl: isSaved ? `gavia://localhost/results/${id}/thumb` : '',
       fileName,
       fileSize: 2048,
-      detections: detectionList(count, id),
+      detections: detectionList(count, id, model),
       processingTime: 0.18,
       timestamp: '2026-09-09T10:00:00+00:00',
       imageWidth: 4282,
       imageHeight: 2335,
-      modelName: 'loon_v1',
+      modelName: model.name,
+      subject: model.subject,
       tilesProcessed: 1,
       saved: isSaved,
     }
@@ -108,10 +151,20 @@ function fakeCore({
           rejectWith({ code: 'ALREADY_SAVED', message: 'Already saved.', status: 409 })
         }
         saved.unshift(meta)
-        return result(meta.id, meta.fileName, meta.detections.length, true)
+        return result(meta.id, meta.fileName, meta.detections.length, true, modelNamed(meta))
       }
       case 'list_results':
-        return saved.map((row) => result(row.id, row.fileName, row.detections.length, true))
+        return saved.map((row) =>
+          result(row.id, row.fileName, row.detections.length, true, modelNamed(row)),
+        )
+      case 'get_settings':
+        return settings()
+      // The new model loads on a thread; the reply says so.
+      case 'select_model': {
+        const { id } = payload as { id: string }
+        chosen = MODELS.find((model) => model.id === id) ?? chosen
+        return settings('starting')
+      }
       // Theming the native window; nothing to fake.
       case 'plugin:window|set_theme':
         return null
@@ -130,6 +183,11 @@ function fakeCore({
         return rejectWith({ code: 'NOT_FOUND', message: `no command ${command}`, status: 404 })
     }
   })
+
+  /** Saved results keep the model that made them, as the core looks it up by name. */
+  function modelNamed(row: StoredRow) {
+    return MODELS.find((model) => model.name === row.modelName) ?? MODELS[0]
+  }
 
   return { handler, saved, calls }
 }
@@ -231,6 +289,48 @@ describe('the full check-and-keep journey', () => {
     // Reopened from the server, so it is already saved and cannot be re-saved.
     expect(await screen.findByRole('heading', { name: '1 loon detected' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Saved to history/ })).toBeDisabled()
+  })
+
+  it('checks for invasive plants once that model is chosen, and history keeps both', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    // A loon check first, kept.
+    await uploadAndCheck(user)
+    await screen.findByRole('heading', { name: '1 loon detected' })
+    await user.click(screen.getByRole('button', { name: /Save result/ }))
+    await waitFor(() => expect(core.saved).toHaveLength(1))
+    await user.click(screen.getByRole('button', { name: /Check another image/ }))
+
+    // Choose the plant model on the Check page itself.
+    await user.click(await screen.findByRole('combobox', { name: 'Model' }))
+    expect(
+      within(screen.getByRole('listbox', { name: 'Model' }))
+        .getAllByRole('option')
+        .map((option) => option.getAttribute('aria-label')),
+    ).toEqual(['Loonet 1.0 · Loons', 'Vegnet 1.0 · Invasive plants'])
+    await user.click(screen.getByRole('option', { name: 'Vegnet 1.0 · Invasive plants' }))
+    expect(core.calls).toContain('select_model')
+    expect(
+      await screen.findByRole('heading', { name: /Is this an invasive plant\?/ }),
+    ).toBeInTheDocument()
+    // Loading, then ready: the menu is usable again.
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Model' })).toBeEnabled())
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, photo('shore.jpg'))
+    await user.click(screen.getByRole('button', { name: /Check for invasive plants/ }))
+    expect(
+      await screen.findByRole('heading', { name: '1 invasive plant detected' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Purple loosestrife')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Save result/ }))
+    await waitFor(() => expect(core.saved).toHaveLength(2))
+
+    // Each saved check reads as what it was looking for.
+    await user.click(historyNavButton())
+    expect(await screen.findByText(/1 invasive plant · 94% highest confidence/)).toBeInTheDocument()
+    expect(screen.getByText(/1 loon · 94% highest confidence/)).toBeInTheDocument()
   })
 
   it('clears the history', async () => {

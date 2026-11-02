@@ -1,4 +1,7 @@
-import type { Detection } from '../types/detection'
+import type { Detection, Subject } from '../types/detection'
+
+/** What a check looks for when nothing says otherwise: the loon model. */
+export const LOONS: Subject = { one: 'loon', many: 'loons' }
 
 /** Confidence as a whole-number percentage, e.g. 0.937 -> 94. */
 export function toPercent(confidence: number): number {
@@ -15,9 +18,24 @@ export function highestConfidence(detections: Detection[]): number {
   return detections.reduce((max, detection) => Math.max(max, detection.confidence), 0)
 }
 
-/** "1 loon" / "3 loons" */
-export function pluralizeLoons(count: number): string {
-  return `${count} ${count === 1 ? 'loon' : 'loons'}`
+/** "1 loon" / "3 loons", "2 invasive plants" */
+export function countOf(count: number, subject: Subject): string {
+  return `${count} ${count === 1 ? subject.one : subject.many}`
+}
+
+/** "a" for "loon", "an" for "invasive plant" */
+export function article(noun: string): string {
+  return /^[aeiou]/i.test(noun) ? 'an' : 'a'
+}
+
+/** "a loon" / "an invasive plant" */
+export function withArticle(noun: string): string {
+  return `${article(noun)} ${noun}`
+}
+
+/** "loons" -> "Loons" */
+export function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 export function formatDate(timestamp: string): string {

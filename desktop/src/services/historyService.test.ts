@@ -22,6 +22,7 @@ function makeResult(id: string, overrides: Partial<DetectionResult> = {}): Detec
     imageWidth: 4000,
     imageHeight: 3000,
     modelName: 'loon_v1',
+    subject: { one: 'loon', many: 'loons' },
     tilesProcessed: 1,
     saved: false,
     ...overrides,

@@ -53,6 +53,11 @@ fn check_keep_browse_and_delete() {
     assert_eq!(checked.file_size, bytes.len() as u64);
     assert_eq!((checked.image_width, checked.image_height), (1600, 1200));
     assert_eq!(service.list(None, None).unwrap().len(), 0);
+    // What the model looks for travels with it, as src/types/detection.ts expects.
+    assert_eq!(
+        serde_json::to_value(&checked).unwrap()["subject"],
+        serde_json::json!({ "one": "loon", "many": "loons" })
+    );
 
     // Keep: what is stored is exactly what the reviewer looked at.
     let kept = service.save(&save_request(&checked), &bytes).unwrap();

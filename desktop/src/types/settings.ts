@@ -1,11 +1,15 @@
 /** Mirrors `SettingsView` and `ModelEntry` in `src-tauri/src/service.rs` and `models.rs`. */
 
+import type { Subject } from './detection'
+
 export interface ModelEntry {
   /** The file stem, e.g. `loon_v1`. */
   id: string
   name: string
   architecture: string
   classes: string[]
+  /** What it looks for: loons, invasive plants. */
+  subject: Subject
   metrics: Record<string, number>
   /** True for a model added to the models folder, false for one shipped with the app. */
   custom: boolean

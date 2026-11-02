@@ -6,6 +6,12 @@ export interface BoundingBox {
   height: number
 }
 
+/** What a model looks for, as the interface counts it: "1 loon", "3 invasive plants". */
+export interface Subject {
+  one: string
+  many: string
+}
+
 export interface Detection {
   id: string
   label: string
@@ -33,6 +39,8 @@ export interface DetectionResult {
   imageWidth: number
   imageHeight: number
   modelName: string
+  /** What `modelName` looks for; a saved result whose model has gone counts as a loon check. */
+  subject: Subject
   /** 1 for a normal whole-image pass; higher when tiled inference was used. */
   tilesProcessed: number
   saved: boolean

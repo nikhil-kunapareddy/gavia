@@ -4,6 +4,13 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
+### Added
+- **Invasive plants.** Check an image now has a **Model** menu: Loonet looks for loons, as before, and the new Vegnet looks for four invasive lake plants (purple loosestrife, common reed, water chestnut and yellow flag iris), naming the species on every box. The result, the history and batch checks all say what was being looked for, and the same choice is in **Settings → Detection model**.
+- Vegnet 1.0 comes from the loonet project. It was trained on 132 iNaturalist photos whose boxes were drafted by a model and reviewed by a person, so treat it as an early model. On its 28 validation photos it scores a mean AP@0.5 of 0.72 (water chestnut 0.96, common reed 0.80, yellow flag iris 0.59, purple loosestrife 0.54).
+- The download is about 35 MB larger, for the second photo model.
+
 ## [0.4.0] - 2026-10-30
 
 ### Added

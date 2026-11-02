@@ -9,7 +9,7 @@ import {
   ThumbsUp,
 } from 'lucide-react'
 import { useState } from 'react'
-import { highestConfidence, pluralizeLoons, toPercent } from '../lib/format'
+import { capitalize, countOf, highestConfidence, toPercent, withArticle } from '../lib/format'
 import type { DetectionResult as Result } from '../types/detection'
 import { DetectionOverlay } from './DetectionOverlay'
 
@@ -77,7 +77,7 @@ function downloadAnnotated(result: Result): Promise<boolean> {
 
       try {
         const link = document.createElement('a')
-        link.download = `loon-check-${result.fileName}`
+        link.download = `${result.subject.one.replace(/\s+/g, '-')}-check-${result.fileName}`
         link.href = canvas.toDataURL('image/jpeg', 0.92)
         link.click()
         resolve(true)
@@ -110,6 +110,8 @@ export function DetectionResult({
   const found = result.detections.length > 0
   const returnIcon = backLabel ? <ArrowLeft size={17} /> : <RotateCcw size={17} />
   const highest = highestConfidence(result.detections)
+  const { subject } = result
+  const count = result.detections.length
 
   async function handleDownload() {
     setDownloadError('')
@@ -123,13 +125,11 @@ export function DetectionResult({
         <div className="result-icon">{found ? <Check size={22} /> : <FileText size={22} />}</div>
         <div>
           <p className="eyebrow">Check complete</p>
-          <h1>
-            {found ? `${pluralizeLoons(result.detections.length)} detected` : 'No loon detected'}
-          </h1>
+          <h1>{found ? `${countOf(count, subject)} detected` : `No ${subject.one} detected`}</h1>
           <p>
             {found
-              ? `We found ${result.detections.length === 1 ? 'a loon' : pluralizeLoons(result.detections.length)} in this image.`
-              : "We didn't find a loon in this image."}
+              ? `We found ${count === 1 ? withArticle(subject.one) : countOf(count, subject)} in this image.`
+              : `We didn't find ${withArticle(subject.one)} in this image.`}
           </p>
         </div>
       </section>
@@ -143,7 +143,7 @@ export function DetectionResult({
           />
           <p className="image-caption">
             {found
-              ? 'Highlighted areas show where a loon was found.'
+              ? `Highlighted areas show where ${withArticle(subject.one)} was found.`
               : 'Review the image carefully when accuracy is important.'}
           </p>
         </div>
@@ -162,13 +162,16 @@ export function DetectionResult({
                 <div className="confidence-track">
                   <span style={{ width: `${highest * 100}%` }} />
                 </div>
-                <p>Confidence indicates how strongly the model matched this image to a loon.</p>
+                <p>
+                  Confidence indicates how strongly the model matched this image to{' '}
+                  {withArticle(subject.one)}.
+                </p>
               </div>
               <div className="detection-list">
                 {result.detections.map((detection, index) => (
                   <div className="detection-row" key={detection.id}>
                     <span>
-                      <b>{index + 1}</b> Loon
+                      <b>{index + 1}</b> {detection.label}
                     </span>
                     <strong>{toPercent(detection.confidence)}%</strong>
                   </div>
@@ -188,8 +191,12 @@ export function DetectionResult({
             <summary>View details</summary>
             <dl>
               <div>
-                <dt>Loons detected</dt>
-                <dd>{result.detections.length}</dd>
+                <dt>{capitalize(subject.many)} detected</dt>
+                <dd>{count}</dd>
+              </div>
+              <div>
+                <dt>Model</dt>
+                <dd>{result.modelName}</dd>
               </div>
               <div>
                 <dt>File name</dt>

@@ -15,7 +15,7 @@ These six capabilities define what Gavia is for. Everything else on this page su
 | 3 | Acoustic Common Loon call classifier | ⚪ Not started |
 | 4 | Shoreline/wetland change detection | ⚪ Not started |
 | 5 | Underwater habitat structure classifier | ⚪ Not started |
-| 6 | Invasive vegetation classifier | ⚪ Not started |
+| 6 | Invasive vegetation classifier | 🟡 Partly done |
 
 ### 1. Common Loon detection — shipped
 
@@ -59,13 +59,15 @@ It needs:
 - A classification (or segmentation) model.
 - Handling for turbid, low-light and colour-shifted underwater imagery.
 
-### 6. Invasive vegetation classifier — not started
+### 6. Invasive vegetation classifier — partly done
 
 Identify invasive aquatic and shoreline plants in photos, such as Eurasian watermilfoil and purple loosestrife, so their spread can be tracked alongside loon habitat.
 
-It needs:
-- A labelled set of the target species and the native plants they're confused with.
-- A classifier.
+**Done:** Vegnet 1.0 (`veg_v1`, YOLO26s), chosen from the **Model** menu on Check an image, boxes stands of purple loosestrife, common reed, water chestnut and yellow flag iris, with mean AP@0.5 0.72 on its 28 validation photos.
+
+It still needs:
+- Hand-checked labels, more photos per species, and the native plants they're confused with. Vegnet's boxes were drafted by Grounding DINO and reviewed.
+- Submerged species such as Eurasian watermilfoil.
 - Results that can be exported with location and date for mapping.
 
 ### What the app needs before features 3–6
