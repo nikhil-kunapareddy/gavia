@@ -2,6 +2,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+// Bundled, not fetched: the app is offline and its CSP allows no remote fonts.
+import '@fontsource-variable/inter'
 import './index.css'
 import { readTheme, resolveTheme } from './lib/theme'
 

@@ -41,6 +41,9 @@ export function AudioUploader({ file, audioUrl, onFile, onRemove }: AudioUploade
       ref={uploadRef}
       className="sr-only"
       type="file"
+      aria-label="Choose a recording"
+      // The visible Upload a recording button opens this; one tab stop, not two.
+      tabIndex={-1}
       accept={RECORDING_ACCEPT}
       onChange={(event) => {
         acceptFiles(event.target.files)
