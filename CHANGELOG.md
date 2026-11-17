@@ -6,6 +6,7 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ### Changed
 - **A new look**, in the Humanitarians AI style: Inter for all text, white and warm off-white with near-black text and a deep red, in light and dark. The main button is the same red on every screen. The smallest text is now 12px (11px for uppercase labels), and every text colour meets WCAG AA contrast.
+- A new app icon to match: the same loon, on warm off-white, inside the red corners of a detection box.
 - Headings had been showing in Times inside the app, because the old fonts came from Google Fonts, which the app's security policy blocks. The font now ships with the app (about 220 KB).
 
 ### Fixed
