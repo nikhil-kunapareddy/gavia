@@ -33,7 +33,16 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # Inference. ort downloads a prebuilt ONNX Runtime at build time and links it
 # statically; there is no Intel Mac build, which is why macOS ships for Apple
 # Silicon only.
-ort = { version = "=2.0.0-rc.13" }
+#
+# The defaults minus `copy-dylibs`. That feature copies the download's dynamic
+# libraries next to cargo's executables, and the only one is DirectML.dll on
+# Windows, which the installer never shipped (the app uses Windows' own). Since
+# Rust 1.100 a build script's OUT_DIR is a level deeper, so ort-sys rc.13 aimed
+# the copy at target/debug/build/examples, which doesn't exist, and every
+# Windows build from a clean target failed.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = [
+    "std", "ndarray", "tracing", "download-binaries", "tls-native", "api-27",
+] }
 
 # Decoding. jpeg-decoder is used directly for JPEG because it can decode at
 # 1/2, 1/4 or 1/8 scale inside the IDCT — the same trick as Pillow's draft().
@@ -54,7 +63,7 @@ symphonia = { version = "0.5", default-features = false, features = [
 ] }
 realfft = "3"
 
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 # Updates from GitHub Releases, checked at startup unless turned off in
