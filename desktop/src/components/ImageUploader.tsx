@@ -41,6 +41,9 @@ export function ImageUploader({ file, previewUrl, onFiles, onRemove }: ImageUplo
       ref={uploadRef}
       className="sr-only"
       type="file"
+      aria-label="Choose photos"
+      // The visible Upload photos button opens this; one tab stop, not two.
+      tabIndex={-1}
       accept={accepted}
       multiple
       onChange={(event) => void acceptFiles(event.target.files)}
