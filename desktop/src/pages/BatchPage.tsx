@@ -161,7 +161,9 @@ export function BatchPage({
             >
               <img src={item.previewUrl} alt="" loading="lazy" decoding="async" />
               <span className="batch-card-content">
-                <strong>{item.file.name}</strong>
+                {/* The space keeps the accessible name "a.jpg 2 loons" without CSS; the
+                    flex column doesn't render it. */}
+                <strong>{item.file.name}</strong>{' '}
                 <span className={statusClass(item)}>{statusText(item, subject)}</span>
               </span>
             </button>
