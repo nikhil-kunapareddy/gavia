@@ -144,14 +144,16 @@ function App() {
     }
   }
 
-  const refreshSettings = useCallback(async () => {
-    try {
-      setSettings(await getSettings())
-    } catch (cause) {
-      console.error('Could not load settings:', cause)
-      setSettingsError(settingsMessage(cause, 'Settings could not be loaded.'))
-    }
-  }, [])
+  // A promise chain rather than async/await: react-hooks' set-state-in-effect
+  // rule sees the state set in a callback, not synchronously in the effect.
+  const refreshSettings = useCallback(
+    () =>
+      getSettings().then(setSettings, (cause: unknown) => {
+        console.error('Could not load settings:', cause)
+        setSettingsError(settingsMessage(cause, 'Settings could not be loaded.'))
+      }),
+    [],
+  )
 
   // The Check page needs them too, for its model menu.
   useEffect(() => {

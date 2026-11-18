@@ -1,5 +1,4 @@
 import { Bird, Check, ChevronDown, Leaf, LoaderCircle, ScanSearch } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { capitalize, LOONS } from '../lib/format'
@@ -20,10 +19,10 @@ function modelLabel(model: ModelEntry): string {
 }
 
 /** A bird for loons, a leaf for plants, a magnifier for anything else. */
-function subjectIcon(subject: Subject): LucideIcon {
-  if (subject.one === LOONS.one) return Bird
-  if (subject.one.includes('plant')) return Leaf
-  return ScanSearch
+function SubjectIcon({ subject }: { subject: Subject }) {
+  if (subject.one === LOONS.one) return <Bird size={18} />
+  if (subject.one.includes('plant')) return <Leaf size={18} />
+  return <ScanSearch size={18} />
 }
 
 /** A ready model says nothing; only loading and failure need a word. */
@@ -33,11 +32,10 @@ function statusText(status: Exclude<ModelStatus, 'ok'>): string {
 
 /** Icon, name and what it finds: the menu button and each option alike. */
 function ModelSummary({ model, details = false }: { model: ModelEntry; details?: boolean }) {
-  const Icon = subjectIcon(model.subject)
   return (
     <>
       <span className="model-icon" aria-hidden="true">
-        <Icon size={18} />
+        <SubjectIcon subject={model.subject} />
       </span>
       <span className="model-text">
         <span className="model-name">

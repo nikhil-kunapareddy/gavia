@@ -4,6 +4,9 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Changed
+- Updated Tauri to 2.12 with its plugins, and the interface's build tools: Vite 8, Vitest 5, ESLint 10 and Tailwind 4. Tailwind only ever supplied the CSS reset, and that is all it supplies now. Building Gavia needs Rust 1.90 or later.
+
 ### Security
 - Updated the bundled SQLite (`rusqlite` 0.41) for this month's RustSec advisory. Three more `zip` advisories in Tauri's updater are documented as unreachable, like the last three: Gavia's updates are signed installers, never zip archives.
 
