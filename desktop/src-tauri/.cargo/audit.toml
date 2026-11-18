@@ -4,18 +4,23 @@
 [advisories]
 ignore = [
     # zip 4.x, through tauri-plugin-updater 2.12 (Windows only), which pins
-    # zip 4. All three are about `ZipArchive::extract` writing symlinks or
-    # permission bits outside the destination; they need ≥ 9.0.0.
+    # zip 4. All six are about reading or extracting an archive; they need
+    # ≥ 9.0.0 (0548: ≥ 9.0.5).
     #
-    # Unreachable in Gavia: the updater verifies an update's minisign
-    # signature against `plugins.updater.pubkey` before installing it, and
-    # Gavia's Windows update is the signed NSIS `-setup.exe`
-    # (`createUpdaterArtifacts: true`, see scripts/updater-manifest.mjs), never
-    # a zip, so `extract_zip` is not called.
+    # Unreachable in Gavia: the updater's only use of zip is `extract_zip`
+    # (`ZipArchive::new` + `extract`; never `ZipStreamReader`), called only
+    # when the download is a zip, and only after `verify_signature` has checked
+    # it against `plugins.updater.pubkey`. Gavia's Windows update is the signed
+    # NSIS `-setup.exe` (`createUpdaterArtifacts: true`, see
+    # scripts/updater-manifest.mjs), never a zip, so `extract_zip` is not
+    # called. Batch zips of photos are read in the interface, with fflate.
     #
     # Remove these once tauri-plugin-updater depends on zip ≥ 9
     # (`cargo tree -i zip --target all`).
     "RUSTSEC-2026-0367", # SUID/SGID bits preserved on extraction
     "RUSTSEC-2026-0368", # extract creates symlinks pointing outside the destination
     "RUSTSEC-2026-0369", # extract applies Unix permissions through symlinks
+    "RUSTSEC-2026-0429", # extract aborts on a symlink entry with a large declared size
+    "RUSTSEC-2026-0545", # AES entries returned without checking their authentication code
+    "RUSTSEC-2026-0548", # ZipStreamReader trusts local-header names over the central directory
 ]

@@ -4,6 +4,9 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 
 ## [Unreleased]
 
+### Security
+- Updated the bundled SQLite (`rusqlite` 0.41) for this month's RustSec advisory. Three more `zip` advisories in Tauri's updater are documented as unreachable, like the last three: Gavia's updates are signed installers, never zip archives.
+
 ## [0.5.0] - 2026-11-01
 
 ### Added
