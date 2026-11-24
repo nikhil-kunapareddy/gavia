@@ -28,7 +28,6 @@ type SaveMeta = Pick<
   | 'imageWidth'
   | 'imageHeight'
   | 'modelName'
-  | 'subject'
   | 'tilesProcessed'
 >
 
@@ -74,6 +73,17 @@ const PREVIEW_LABELS: Record<string, string[]> = {
 
 function chosenModel() {
   return PREVIEW_MODELS.find((model) => model.id === previewSettings.model) ?? PREVIEW_MODELS[0]
+}
+
+/**
+ * As the core's `to_wire`: a saved result doesn't store its subject, so it is
+ * looked up from the model by name, and an unknown model reads as loons.
+ */
+function subjectOf(modelName: string): DetectionResult['subject'] {
+  return (
+    PREVIEW_MODELS.find((model) => `${model.name} (browser preview)` === modelName)?.subject ??
+    PREVIEW_MODELS[0].subject
+  )
 }
 
 const previewSettings: AppSettings = {
@@ -187,6 +197,7 @@ export async function previewCall<T>(command: string, args?: Args): Promise<T> {
       const url = URL.createObjectURL(new Blob([bytes.slice()]))
       const result: DetectionResult = {
         ...meta,
+        subject: subjectOf(meta.modelName),
         imageUrl: url,
         thumbnailUrl: url,
         fileSize: bytes.length,

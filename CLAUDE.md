@@ -211,6 +211,10 @@ presentational. No router — `page` is a `Page` state value.
   supplies only its Preflight reset (`@import 'tailwindcss/preflight.css'`,
   compiled by `@tailwindcss/postcss`): no utilities, no config, no `@apply`.
   Add a class to `index.css` and reference it by name.
+- **Fonts are bundled, never fetched.** Inter comes from `@fontsource-variable/inter`,
+  imported in `main.tsx`. The CSP's `default-src 'self'` blocks remote fonts, so
+  an `@import` from Google Fonts silently falls back to Times in the app (it
+  still works in `npm run dev`, which is how that went unnoticed).
 - Wire types are camelCase (`#[serde(rename_all = "camelCase")]`) to match
   `src/types/detection.ts` exactly.
 - Every command rejects with `ApiError { code, message, status, requestId }`

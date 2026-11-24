@@ -5,10 +5,17 @@ All notable changes to Gavia are recorded here. The format is based on [Keep a C
 ## [Unreleased]
 
 ### Changed
+- **A new look**, in the Humanitarians AI style: Inter for all text, white and warm off-white with near-black text and a deep red, in light and dark. The main button is the same red on every screen. The smallest text is now 12px (11px for uppercase labels), and every text colour meets WCAG AA contrast.
+- A new app icon to match: the same loon, on warm off-white, inside the red corners of a detection box.
+- Headings had been showing in Times inside the app, because the old fonts came from Google Fonts, which the app's security policy blocks. The font now ships with the app (about 220 KB).
 - Updated Tauri to 2.12 with its plugins, and the interface's build tools: Vite 8, Vitest 5, ESLint 10 and Tailwind 4. Tailwind only ever supplied the CSS reset, and that is all it supplies now. Building Gavia needs Rust 1.90 or later.
+
+### Fixed
+- The photo and recording file choosers have names for screen readers, and the Help and View details targets are at least 24px.
 
 ### Security
 - Updated the bundled SQLite (`rusqlite` 0.41) for this month's RustSec advisory. Three more `zip` advisories in Tauri's updater are documented as unreachable, like the last three: Gavia's updates are signed installers, never zip archives.
+- Updated `url` (2.5.9) and `cookie` (0.18.3) in the core's dependencies for two RustSec advisories published this week.
 
 ## [0.5.0] - 2026-11-01
 
