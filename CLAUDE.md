@@ -29,7 +29,7 @@ npm run lint           # eslint . (type-checked rules)
 npm run format:check   # prettier; CI runs this
 npm test -- src/services/historyService.test.ts     # one file
 npm test -- -t 'saving'                             # one case
-npm run test:coverage                               # ~99% of statements
+npm run test:coverage                               # ~98% of statements
 npm run release        # maintainers: tag + GitHub pre-release; CI attaches installers
 ```
 
@@ -207,9 +207,10 @@ presentational. No router — `page` is a `Page` state value.
 
 ## Conventions
 
-- **Styling is hand-written semantic CSS in `src/index.css`**. Tailwind is
-  installed and configured but components use no utility classes and the CSS
-  uses no `@apply`. Add a class to `index.css` and reference it by name.
+- **Styling is hand-written semantic CSS in `src/index.css`**. Tailwind 4
+  supplies only its Preflight reset (`@import 'tailwindcss/preflight.css'`,
+  compiled by `@tailwindcss/postcss`): no utilities, no config, no `@apply`.
+  Add a class to `index.css` and reference it by name.
 - **Fonts are bundled, never fetched.** Inter comes from `@fontsource-variable/inter`,
   imported in `main.tsx`. The CSP's `default-src 'self'` blocks remote fonts, so
   an `@import` from Google Fonts silently falls back to Times in the app (it

@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind's Preflight reset, and nothing else from Tailwind: the UI uses no
+   utility classes. Unlayered, so the rules below win by order, as in v3. */
+@import 'tailwindcss/preflight.css';
 
 :root {
   /* Light is the default. `data-theme` on <html> is set before first paint
@@ -83,6 +83,11 @@ body {
 }
 button {
   font: inherit;
+}
+/* Tailwind 3's Preflight gave buttons a pointer and 4's doesn't. :where() keeps
+   it as weak as it was, so any class that sets a cursor still wins. */
+:where(button:not(:disabled), [role='button']:not(:disabled)) {
+  cursor: pointer;
 }
 button:focus-visible,
 summary:focus-visible {
